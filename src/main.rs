@@ -2,7 +2,6 @@ extern crate core;
 
 mod config;
 mod fhir;
-mod hl7;
 mod metrics;
 mod processor;
 mod error;
