@@ -1,0 +1,61 @@
+{
+  "resourceType": "Bundle",
+  "meta": {
+  },
+  "identifier": {
+    "system": "https://fhir.diz.uni-marburg.de/sid/bundle-id",
+    "value": "ABCDEFG"
+  },
+  "type": "transaction",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "meta": {
+          "source": "",
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/atemfrequenz"
+          ]
+        },
+        "identifier": [
+          {
+            "use": "usual",
+            "system": "https://fhir.diz.uni-marburg.de/sid/vital-sign-id",
+            "value": "7f08791cd01d9858890fd00360de948d336056106c4f2a149ad5292dd959d14f"
+          }
+        ],
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "version": "http://snomed.info/sct/900000000000207008/version/20241101",
+              "code": "86290005",
+              "display": "Respiratory rate (observable entity)"
+            }
+          ]
+        },
+        "valueQuantity": {
+          "value": 8.0,
+          "unit": "breaths per minute",
+          "system": "http://unitsofmeasure.org",
+          "code": "/min"
+        }
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Observation?identifier=https://fhir.diz.uni-marburg.de/sid/vital-sign-id|7f08791cd01d9858890fd00360de948d336056106c4f2a149ad5292dd959d14f"
+      }
+    }
+  ]
+}

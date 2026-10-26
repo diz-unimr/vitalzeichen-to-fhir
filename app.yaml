@@ -1,0 +1,27 @@
+app:
+  log_level: info
+  telemetry_endpoint: http://localhost:4317
+
+kafka:
+  brokers: localhost:9092
+  security_protocol: plaintext
+  ssl:
+    ca_location: /app/cert/kafka_ca.pem
+    certificate_location: /app/cert/app_cert.pem
+    key_location: /app/cert/app_key.pem
+    key_password:
+  consumer_group: vitalzeichen-to-fhir
+  input_topic: vital_monitor-hl7-idat
+  output_topic: vital_monitor-hl7-fhir
+  offset_reset: earliest
+  num_partitions: 1
+
+fhir:
+  meta_source: "https://fhir.diz.uni-marburg.de/data-source/connex-spot-monitor"
+  profile:
+#    ICU-Atemfrequenz-mii
+#    ICU-Koerpergewicht-mii
+#    ICU-Koerpergroesse-mii
+#    ICU-Pulsoxy-mii
+#    ICU-Herzfrequenz-mii
+#    ICU-Arterieller-Blutdruck-mii

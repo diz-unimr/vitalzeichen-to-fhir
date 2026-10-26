@@ -1,0 +1,19 @@
+name: Cargo Machete
+
+"on":
+  push:
+    branches: [master, main]
+    tags:
+      - "**"
+  pull_request:
+
+permissions: read-all
+
+jobs:
+  detect-unused-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Machete
+        uses: bnjbvr/cargo-machete@main

@@ -1,0 +1,32 @@
+[package]
+name = "vitalzeichen-to-fhir"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+config = "0.15.16"
+log = "0.4.34"
+env_logger = "0.11.9"
+thiserror = "2.0.20"
+rdkafka = { version = "0.38.0", features = ["ssl", "cmake-build"] }
+validator = { version = "0.20.0", features = ["derive"] }
+tokio = { version = "1.53.1", features = ["full"] }
+tokio-util = "0.7.19"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+opentelemetry = "0.33.0"
+opentelemetry_sdk = "0.33.0"
+opentelemetry-otlp = { version = "0.33.0", features = ["grpc-tonic"] }
+itertools = "0.15.0"
+futures = "0.3.34"
+fhir-model = { version = "0.13.0", default-features = false, features = ["builders", "r4b"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+anyhow = "1.0.104"
+hl7-parser = "0.3.0"
+uuid = { version = "1.26.1", features = ["v4", ] }
+sha2 = "0.11.1"
+base16ct = { version = "1.0.0", features = ["alloc"] }
+
+[dev-dependencies]
+mock-collector = "0.2"
+serde-json-assert = "0.4.0"
