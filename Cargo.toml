@@ -26,6 +26,8 @@ hl7-parser = "0.3.0"
 uuid = { version = "1.26.1", features = ["v4", ] }
 sha2 = "0.11.1"
 base16ct = { version = "1.0.0", features = ["alloc"] }
+chrono = { version = "0.4.44", features = ["serde"] }
+chrono-tz = "0.10.4"
 
 [dev-dependencies]
 mock-collector = "0.2"

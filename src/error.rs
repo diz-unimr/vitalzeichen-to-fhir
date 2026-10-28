@@ -1,7 +1,7 @@
-use fhir_model::BuilderError;
+use fhir_model::time::error::ComponentRange;
+use fhir_model::{BuilderError, DateFormatError};
 use hl7_parser::parser::ParseError;
 use rdkafka::error::KafkaError;
-use std::fmt::{Display, Formatter};
 use std::num::ParseFloatError;
 use thiserror::Error;
 
@@ -12,20 +12,21 @@ pub(crate) enum ProcessingError {
     #[error(transparent)]
     Mapping(#[from] MappingError),
 }
+
 #[derive(Debug, Error)]
 pub(crate) enum MappingError {
-    FatalError(String),
     #[error(transparent)]
     ParseError(#[from] ParseError),
     #[error(transparent)]
+    TimeParseError(#[from] chrono::format::ParseError),
+    #[error(transparent)]
+    TimeRangeError(#[from] ComponentRange),
+    #[error(transparent)]
+    DateFormatError(#[from] DateFormatError),
+    #[error(transparent)]
     BuilderError(#[from] BuilderError),
+    #[error(transparent)]
     ParseFloatError(#[from] ParseFloatError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-impl Display for MappingError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Failed to map HL7 message")
-    }
 }
