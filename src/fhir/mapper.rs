@@ -1,17 +1,21 @@
 use crate::config::Fhir;
 use crate::error::MappingError;
-use crate::error::MappingError::FatalError;
 use anyhow::anyhow;
+use chrono::{NaiveDateTime, TimeZone};
+use chrono_tz::Europe::Berlin;
+use fhir_model::DateFormatError::InvalidDate;
 use fhir_model::r4b::codes::{
     BundleType, DiagnosticReportStatus, HTTPVerb, IdentifierUse, ObservationStatus,
 };
 use fhir_model::r4b::resources::{
     Bundle, BundleEntry, BundleEntryRequest, DiagnosticReport, IdentifiableResource, Observation,
-    ObservationValue, Resource, ResourceType,
+    ObservationBuilder, ObservationEffective, ObservationValue, Resource, ResourceType,
 };
-use fhir_model::r4b::types::{CodeableConcept, Coding, Identifier, Meta, Quantity, Reference};
+use fhir_model::r4b::types::{
+    CodeableConcept, Coding, Identifier, Meta, Quantity, Reference,
+};
 use fhir_model::time::OffsetDateTime;
-use fhir_model::{BuilderError, Instant};
+use fhir_model::{BuilderError, DateTime, Instant};
 use hl7_parser::Message;
 use hl7_parser::message::{Field, Segment};
 use itertools::Itertools;
@@ -62,11 +66,13 @@ impl FhirMapper {
     }
 
     fn map_resources(&self, msg: &Message) -> Result<Vec<Option<BundleEntry>>, MappingError> {
+        let pid = query(msg, "PID.3").ok_or(anyhow!("Missing patient id (pid) in PID.3"))?;
+        let msg_key = message_key(msg)?;
         let obs = msg
             .segments()
             .filter(|s| s.name == "OBX")
-            .flat_map(|s| self.map_observation(s, message_key(msg)?))
-            .map(|o| bundle_entry(o))
+            .filter_map(|s| self.map_observation(s, msg_key, pid).transpose())
+            .map(|o| bundle_entry(o?))
             .collect::<Result<Vec<_>, _>>()?;
 
         if obs.is_empty() {
@@ -89,41 +95,37 @@ impl FhirMapper {
             .collect())
     }
 
-    fn map_respiratory_rate(&self, s: &Segment, msg_id: &str) -> Result<Observation, MappingError> {
-        let mut obs = Observation::builder()
+    fn patient_ref(&self, pid: &str) -> Result<Reference, BuilderError> {
+        Reference::builder()
+            .reference(format!(
+                "Patient?identifier={}|{pid}",
+                self.config.patient_system
+            ))
+            .build()
+    }
+
+    fn map_respiratory_rate(&self, s: &Segment) -> Result<ObservationBuilder, MappingError> {
+        Ok(Observation::builder()
             .meta(self.meta("https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/atemfrequenz".to_string())?)
-            .category(vec![
-                Some(CodeableConcept::builder()
-                         .coding(vec![
-                             Some(Coding::builder()
-                                 .system("http://terminology.hl7.org/CodeSystem/observation-category".to_string())
-                                 .code("vital-signs".to_string())
-                                 .build()?)]).build()?,
-                )])
-            .code(respiratory_rate_coding())
+            .code(respiratory_rate_coding()?)
             .value(ObservationValue::Quantity(Quantity::builder()
                 .system("http://unitsofmeasure.org".to_string())
                 .value(obx_value_numeric(s)?)
                 .unit("breaths per minute".to_string())
                 .code("/min".to_string()).build()?))
-            // OBX.11
-            .status(match s.field(11).map(Field::raw_value) {
-                Some("F") => ObservationStatus::Final,
-                Some("C") => ObservationStatus::Preliminary,
-                _ => ObservationStatus::Unknown
-            })
-            .build()?;
+        )
+    }
 
-        // identifier
-        let code = field_value(s, 3).ok_or(anyhow!("OBX code field empty"))?;
-        let segment_number = field_value(s, 1).ok_or(anyhow!("OBX segment number missing"))?;
-
-        obs.identifier = vec![Some(build_usual_identifier(
-            vec![msg_id, segment_number, code],
-            "https://fhir.diz.uni-marburg.de/sid/vital-sign-id".to_string(),
-        )?)];
-
-        Ok(obs)
+    fn map_oxygen_saturation(&self, s: &Segment) -> Result<ObservationBuilder, MappingError> {
+        Ok(Observation::builder()
+            .meta(self.meta("https://gematik.de/fhir/isik/StructureDefinition/sd-mii-icu-o2saettigung-im-arteriellen-blut-durch-pulsoxymetrie".to_string())?)
+            .code(oxygen_saturation_coding()?)
+            .value(ObservationValue::Quantity(Quantity::builder()
+                .system("http://unitsofmeasure.org".to_string())
+                .value(obx_value_numeric(s)?)
+                .unit("percent".to_string())
+                .code("%".to_string()).build()?))
+        )
     }
 
     fn meta(&self, profile: String) -> Result<Meta, BuilderError> {
@@ -133,14 +135,43 @@ impl FhirMapper {
             .build()
     }
 
-    fn map_observation(&self, s: &Segment, msg_id: &str) -> Result<Observation, MappingError> {
+    fn map_observation(
+        &self,
+        s: &Segment,
+        msg_id: &str,
+        pid: &str,
+    ) -> Result<Option<Observation>, MappingError> {
         // OBX identifier
         match field_value(s, 3).ok_or(anyhow!("empty OBX identifier"))? {
-            // "RESPMODE"
             // atemfrequenz
-            "RESP" => self.map_respiratory_rate(s, msg_id),
+            "RESP" => self.map_respiratory_rate(s),
+            // sauerstoffsättigung
+            "SPO2" => self.map_oxygen_saturation(s),
+            // todo
+            "HR" => return Ok(None),
+            // todo
+            "HT" => return Ok(None),
+            // todo
+            "SYS" => return Ok(None),
+            // todo
+            "DIA" => return Ok(None),
+            // todo
+            "MAP" => return Ok(None),
+            // todo
+            "WT" => return Ok(None),
+            // todo?
+            "RESPMODE" | "TEMPSITE" | "PAIN" | "TEMP" | "BMI" => return Ok(None),
             o => Err(anyhow!("Unknown OBX identifier: {o}").into()),
-        }
+        }?
+            // common properties
+            .identifier(identifier(s, msg_id)?)
+            .category(category()?)
+            .status(observation_status(s))
+            .subject(self.patient_ref(pid)?)
+            .effective(observation_effective(s)?)
+            .build()
+            .map(Some)
+            .map_err(|e| e.into())
     }
 
     fn map_report(
@@ -175,6 +206,48 @@ impl FhirMapper {
     }
 }
 
+fn observation_effective(segment: &Segment) -> Result<ObservationEffective, MappingError> {
+    let dt = parse_datetime(
+        field_value(segment, 14).ok_or(anyhow!("Effective datetime missing in OBX.14"))?,
+    )?;
+    Ok(ObservationEffective::DateTime(dt))
+}
+
+fn category() -> Result<Vec<Option<CodeableConcept>>, BuilderError> {
+    Ok(vec![Some(
+        CodeableConcept::builder()
+            .coding(vec![Some(
+                Coding::builder()
+                    .system(
+                        "http://terminology.hl7.org/CodeSystem/observation-category".to_string(),
+                    )
+                    .code("vital-signs".to_string())
+                    .build()?,
+            )])
+            .build()?,
+    )])
+}
+
+fn identifier(segment: &Segment, msg_id: &str) -> Result<Vec<Option<Identifier>>, MappingError> {
+    // identifier
+    let code = field_value(segment, 3).ok_or(anyhow!("OBX code field empty"))?;
+    let segment_number = field_value(segment, 1).ok_or(anyhow!("OBX segment number missing"))?;
+
+    Ok(vec![Some(build_usual_identifier(
+        vec![msg_id, segment_number, code],
+        "https://fhir.diz.uni-marburg.de/sid/vital-sign-id".to_string(),
+    )?)])
+}
+
+fn observation_status(segment: &Segment) -> ObservationStatus {
+    // OBX.11
+    match field_value(segment, 11) {
+        Some("F") => ObservationStatus::Final,
+        Some("C") => ObservationStatus::Preliminary,
+        _ => ObservationStatus::Unknown,
+    }
+}
+
 pub(crate) fn build_usual_identifier(
     value_components: Vec<&str>,
     system: String,
@@ -189,7 +262,7 @@ pub(crate) fn build_usual_identifier(
         .build()
 }
 
-fn respiratory_rate_coding() -> CodeableConcept {
+fn respiratory_rate_coding() -> Result<CodeableConcept, BuilderError> {
     CodeableConcept::builder()
         .coding(vec![
             Coding::builder()
@@ -211,7 +284,40 @@ fn respiratory_rate_coding() -> CodeableConcept {
                 .ok(),
         ])
         .build()
-        .unwrap()
+}
+
+fn oxygen_saturation_coding() -> Result<CodeableConcept, BuilderError> {
+    CodeableConcept::builder()
+        .coding(vec![
+            Coding::builder()
+                .system("http://snomed.info/sct".to_string())
+                .code("442476006".to_string())
+                .display("Arterial oxygen saturation".to_string())
+                .build()
+                .ok(),
+            Coding::builder()
+                .system("http://loinc.org".to_string())
+                .code("59408-5".to_string())
+                .display(
+                    "Sauerstoffsättigung in arteriellem Blut mittels Pulsoximetrie".to_string(),
+                )
+                .build()
+                .ok(),
+            Coding::builder()
+                .system("urn:iso:std:iso:11073:10101".to_string())
+                .code("150324".to_string())
+                .display("MDC_SAT_O2_ART".to_string())
+                .build()
+                .ok(),
+            Coding::builder()
+                .system("http://loinc.org".to_string())
+                .code("2708-6".to_string())
+                .display("Oxygen saturation in Arterial blood".to_string())
+                .build()
+                .ok(),
+        ])
+        .build()
+        .map_err(|e| e.into())
 }
 
 fn field_value<'a>(segment: &'a Segment, field: usize) -> Option<&'a str> {
@@ -219,7 +325,9 @@ fn field_value<'a>(segment: &'a Segment, field: usize) -> Option<&'a str> {
 }
 
 pub(crate) fn message_key<'a>(msg: &'a Message<'_>) -> Result<&'a str, MappingError> {
-    query(msg, "MSH.10").ok_or(FatalError("Failed to parse message key".to_string()))
+    query(msg, "MSH.10")
+        .ok_or(anyhow!("Failed to parse message key".to_string()))
+        .map_err(|e| e.into())
 }
 
 pub(crate) fn obx_value_numeric(s: &Segment) -> Result<f64, MappingError> {
@@ -227,8 +335,10 @@ pub(crate) fn obx_value_numeric(s: &Segment) -> Result<f64, MappingError> {
     match field_value(s, 2) {
         Some("NM") => {
             // OBX.5
-            let blubb = field_value(s, 5).ok_or(anyhow!("Missing OBX.5 value"))?;
-            blubb.parse::<f64>().map_err(|e| e.into())
+            field_value(s, 5)
+                .ok_or(anyhow!("Missing OBX.5 value"))?
+                .parse::<f64>()
+                .map_err(|e| e.into())
         }
         v => Err(anyhow!("Invalid OBX.2 value type: {v:?}. Expected numeric (NM)").into()),
     }
@@ -295,5 +405,23 @@ fn bundle_entry_request(
         .build()?)
 }
 
+pub(crate) fn parse_datetime(input: &str) -> Result<DateTime, MappingError> {
+    let dt = NaiveDateTime::parse_from_str(input, "%Y%m%d%H%M%S")
+        .map_err(|e| anyhow!("Failed to parse DateTime value from '{input}': {e}"))?;
+    let dt_with_tz = Berlin
+        .from_local_datetime(&dt)
+        .earliest()
+        .ok_or(InvalidDate)?;
+
+    Ok(DateTime::DateTime(Instant(
+        OffsetDateTime::from_unix_timestamp(dt_with_tz.timestamp())?,
+    )))
+}
+
 #[cfg(test)]
-mod tests {}
+mod tests {
+
+    // todo
+    // #[test]
+    // map_ressources_collects_error(){}
+}

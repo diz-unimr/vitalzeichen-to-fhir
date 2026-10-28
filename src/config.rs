@@ -25,13 +25,7 @@ pub(crate) struct Kafka {
 #[derive(Default, Deserialize, Clone)]
 pub(crate) struct Fhir {
     pub(crate) meta_source: String,
-    pub(crate) profile: Vec<Profile>,
-}
-
-#[derive(Deserialize, Clone)]
-pub(crate) struct Profile {
-    pub(crate) name: String,
-    pub(crate) canonical: String,
+    pub(crate) patient_system: String,
 }
 
 #[derive(Default, Debug, Deserialize, Clone)]
