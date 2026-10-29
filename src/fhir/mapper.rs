@@ -9,20 +9,35 @@ use fhir_model::r4b::codes::{
 };
 use fhir_model::r4b::resources::{
     Bundle, BundleEntry, BundleEntryRequest, DiagnosticReport, IdentifiableResource, Observation,
-    ObservationBuilder, ObservationEffective, ObservationValue, Resource, ResourceType,
+    ObservationBuilder, ObservationComponent, ObservationComponentValue, ObservationEffective,
+    ObservationValue, Resource, ResourceType,
 };
-use fhir_model::r4b::types::{
-    CodeableConcept, Coding, Identifier, Meta, Quantity, Reference,
-};
+use fhir_model::r4b::types::{CodeableConcept, Coding, Identifier, Meta, Quantity, Reference};
 use fhir_model::time::OffsetDateTime;
 use fhir_model::{BuilderError, DateTime, Instant};
 use hl7_parser::Message;
 use hl7_parser::message::{Field, Segment};
-use itertools::Itertools;
+use itertools::{Either, Itertools};
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
+use std::iter;
 
 pub(crate) struct FhirMapper {
     pub(crate) config: Fhir,
+}
+
+enum ObservationSegment<'a> {
+    Single(&'a Segment<'a>),
+    Multiple(HashMap<&'a str, &'a Segment<'a>>),
+}
+
+impl<'a> ObservationSegment<'a> {
+    fn single(&self) -> Option<&'a Segment<'a>> {
+        match self {
+            &ObservationSegment::Single(&ref s) => Some(s),
+            ObservationSegment::Multiple(m) => m.values().next().map(|v| &**v),
+        }
+    }
 }
 
 impl FhirMapper {
@@ -68,9 +83,21 @@ impl FhirMapper {
     fn map_resources(&self, msg: &Message) -> Result<Vec<Option<BundleEntry>>, MappingError> {
         let pid = query(msg, "PID.3").ok_or(anyhow!("Missing patient id (pid) in PID.3"))?;
         let msg_key = message_key(msg)?;
-        let obs = msg
+
+        // partition segments by blood pressure values (bp) and other, single observations
+        let (bp, other): (HashMap<_, _>, Vec<_>) = msg
             .segments()
             .filter(|s| s.name == "OBX")
+            .partition_map(|s| match field_value(s, 3) {
+                Some(id @ ("SYS" | "DIA" | "MAP")) => Either::Left((id, s)),
+                _ => Either::Right(s),
+            });
+
+        // wrap both in ObservationSegment and map to Observation bundle entries
+        let obs = other
+            .into_iter()
+            .map(ObservationSegment::Single)
+            .chain(iter::once(ObservationSegment::Multiple(bp)))
             .filter_map(|s| self.map_observation(s, msg_key, pid).transpose())
             .map(|o| bundle_entry(o?))
             .collect::<Result<Vec<_>, _>>()?;
@@ -128,6 +155,163 @@ impl FhirMapper {
         )
     }
 
+    fn map_heart_rate(&self, s: &Segment) -> Result<ObservationBuilder, MappingError> {
+        Ok(Observation::builder()
+            .meta(self.meta("https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/herzfrequenz".to_string())?)
+            .code(heart_rate_coding()?)
+            .value(ObservationValue::Quantity(Quantity::builder()
+                .system("http://unitsofmeasure.org".to_string())
+                .value(obx_value_numeric(s)?)
+                .unit("beats per minute".to_string())
+                .code("/min".to_string()).build()?))
+        )
+    }
+
+    fn map_blood_pressure(
+        &self,
+        sys: &Segment,
+        dia: &Segment,
+        map: &Segment,
+    ) -> Result<ObservationBuilder, MappingError> {
+        let components = vec![
+            // sys
+            Some(
+                ObservationComponent::builder()
+                    .code(
+                        CodeableConcept::builder()
+                            .coding(vec![
+                                Some(
+                                    Coding::builder()
+                                        .system("http://loinc.org".to_string())
+                                        .code("8480-6".to_string())
+                                        .display("Systolic blood pressure".to_string())
+                                        .build()?,
+                                ),
+                                Some(
+                                    Coding::builder()
+                                        .system("http://snomed.info/sct".to_string())
+                                        .code("271649006".to_string())
+                                        .display(
+                                            "Systolic blood pressure (observable entity)"
+                                                .to_string(),
+                                        )
+                                        .build()?,
+                                ),
+                                Some(
+                                    Coding::builder()
+                                        .system("urn:iso:std:iso:11073:10101".to_string())
+                                        .code("150017".to_string())
+                                        .display("Systolic blood pressure".to_string())
+                                        .build()?,
+                                ),
+                            ])
+                            .build()?,
+                    )
+                    .value(ObservationComponentValue::Quantity(
+                        Quantity::builder()
+                            .value(obx_value_numeric(sys)?)
+                            .unit("millimeter Mercury column".to_string())
+                            .system("http://unitsofmeasure.org".to_string())
+                            .code("mm[Hg]".to_string())
+                            .build()?,
+                    ))
+                    .build()?,
+            ),
+            // dia
+            Some(
+                ObservationComponent::builder()
+                    .code(
+                        CodeableConcept::builder()
+                            .coding(vec![
+                                Some(
+                                    Coding::builder()
+                                        .system("http://loinc.org".to_string())
+                                        .code("8462-4".to_string())
+                                        .display("Diastolic blood pressure".to_string())
+                                        .build()?,
+                                ),
+                                Some(
+                                    Coding::builder()
+                                        .system("http://snomed.info/sct".to_string())
+                                        .code("271650006".to_string())
+                                        .display(
+                                            "Diastolic blood pressure (observable entity)"
+                                                .to_string(),
+                                        )
+                                        .build()?,
+                                ),
+                                Some(
+                                    Coding::builder()
+                                        .system("urn:iso:std:iso:11073:10101".to_string())
+                                        .code("150018".to_string())
+                                        .display("Diastolic blood pressure".to_string())
+                                        .build()?,
+                                ),
+                            ])
+                            .build()?,
+                    )
+                    .value(ObservationComponentValue::Quantity(
+                        Quantity::builder()
+                            .value(obx_value_numeric(dia)?)
+                            .unit("millimeter Mercury column".to_string())
+                            .system("http://unitsofmeasure.org".to_string())
+                            .code("mm[Hg]".to_string())
+                            .build()?,
+                    ))
+                    .build()?,
+            ),
+            // map
+            Some(
+                ObservationComponent::builder()
+                    .code(
+                        CodeableConcept::builder()
+                            .coding(vec![
+                                Some(
+                                    Coding::builder()
+                                        .system("http://loinc.org".to_string())
+                                        .code("8478-0".to_string())
+                                        .display("Mean blood pressure".to_string())
+                                        .build()?,
+                                ),
+                                Some(
+                                    Coding::builder()
+                                        .system("http://snomed.info/sct".to_string())
+                                        .code("6797001".to_string())
+                                        .display(
+                                            "Mean blood pressure (observable entity)".to_string(),
+                                        )
+                                        .build()?,
+                                ),
+                                Some(
+                                    Coding::builder()
+                                        .system("urn:iso:std:iso:11073:10101".to_string())
+                                        .code("150019".to_string())
+                                        .display(
+                                            "Mean blood pressure".to_string(),
+                                        )
+                                        .build()?,
+                                ),
+                            ])
+                            .build()?,
+                    )
+                    .value(ObservationComponentValue::Quantity(
+                        Quantity::builder()
+                            .value(obx_value_numeric(map)?)
+                            .unit("millimeter Mercury column".to_string())
+                            .system("http://unitsofmeasure.org".to_string())
+                            .code("mm[Hg]".to_string())
+                            .build()?,
+                    ))
+                    .build()?,
+            ),
+        ];
+        Ok(Observation::builder()
+            .meta(self.meta("https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/arterieller-blutdruck".to_string())?)
+            .code(blood_pressure_coding()?)
+            .component(components)
+        )
+    }
+
     fn meta(&self, profile: String) -> Result<Meta, BuilderError> {
         Meta::builder()
             .source(self.config.meta_source.to_string())
@@ -137,38 +321,46 @@ impl FhirMapper {
 
     fn map_observation(
         &self,
-        s: &Segment,
+        s: ObservationSegment,
         msg_id: &str,
         pid: &str,
     ) -> Result<Option<Observation>, MappingError> {
-        // OBX identifier
-        match field_value(s, 3).ok_or(anyhow!("empty OBX identifier"))? {
-            // atemfrequenz
-            "RESP" => self.map_respiratory_rate(s),
-            // sauerstoffsättigung
-            "SPO2" => self.map_oxygen_saturation(s),
-            // todo
-            "HR" => return Ok(None),
-            // todo
-            "HT" => return Ok(None),
-            // todo
-            "SYS" => return Ok(None),
-            // todo
-            "DIA" => return Ok(None),
-            // todo
-            "MAP" => return Ok(None),
-            // todo
-            "WT" => return Ok(None),
-            // todo?
-            "RESPMODE" | "TEMPSITE" | "PAIN" | "TEMP" | "BMI" => return Ok(None),
-            o => Err(anyhow!("Unknown OBX identifier: {o}").into()),
-        }?
+        let ref_seg = s
+            .single()
+            .ok_or(anyhow!("failed to provide single observation segment"))?;
+        match s {
+            ObservationSegment::Single(s) => {
+                // OBX identifier
+                match field_value(s, 3).ok_or(anyhow!("empty OBX identifier"))? {
+                    // atemfrequenz
+                    "RESP" => self.map_respiratory_rate(s),
+                    // sauerstoffsättigung
+                    "SPO2" => self.map_oxygen_saturation(s),
+                    // herzfrequenz
+                    "HR" => self.map_heart_rate(s),
+                    // todo
+                    "HT" => return Ok(None),
+                    // todo
+                    "WT" => return Ok(None),
+                    // todo?
+                    "RESPMODE" | "TEMPSITE" | "PAIN" | "TEMP" | "BMI" => return Ok(None),
+                    o => Err(anyhow!("Unknown OBX identifier: {o}").into()),
+                }?
+            }
+            ObservationSegment::Multiple(ref m) => {
+                match (m.get("SYS"), m.get("DIA"), m.get("MAP")) {
+                    // arterieller blutdruck
+                    (Some(sys), Some(dia), Some(map)) => self.map_blood_pressure(sys, dia, map),
+                    _ => return Ok(None),
+                }?
+            }
+        }
             // common properties
-            .identifier(identifier(s, msg_id)?)
+            .identifier(identifier(ref_seg, msg_id)?)
             .category(category()?)
-            .status(observation_status(s))
+            .status(observation_status(ref_seg))
             .subject(self.patient_ref(pid)?)
-            .effective(observation_effective(s)?)
+            .effective(observation_effective(ref_seg)?)
             .build()
             .map(Some)
             .map_err(|e| e.into())
@@ -204,6 +396,26 @@ impl FhirMapper {
             .build()
             .map_err(|e| e.into())
     }
+}
+
+fn blood_pressure_coding() -> Result<CodeableConcept, BuilderError> {
+    CodeableConcept::builder()
+        .coding(vec![
+            Some(
+                Coding::builder()
+                    .system("http://snomed.info/sct".to_string())
+                    .code("75367002".to_string())
+                    .display("Blood pressure (observable entity)".to_string())
+                    .build()?,
+            ),
+            Some(
+                Coding::builder()
+                    .system("http://loinc.org".to_string())
+                    .code("85354-9".to_string())
+                    .build()?,
+            ),
+        ])
+        .build()
 }
 
 fn observation_effective(segment: &Segment) -> Result<ObservationEffective, MappingError> {
@@ -320,6 +532,32 @@ fn oxygen_saturation_coding() -> Result<CodeableConcept, BuilderError> {
         .map_err(|e| e.into())
 }
 
+fn heart_rate_coding() -> Result<CodeableConcept, BuilderError> {
+    CodeableConcept::builder()
+        .coding(vec![
+            Coding::builder()
+                .system("http://snomed.info/sct".to_string())
+                .code("364075005".to_string())
+                .display("Heart rate (observable entity)".to_string())
+                .build()
+                .ok(),
+            Coding::builder()
+                .system("http://loinc.org".to_string())
+                .code("8867-4".to_string())
+                .display("Heart Rate".to_string())
+                .build()
+                .ok(),
+            Coding::builder()
+                .system("urn:iso:std:iso:11073:10101".to_string())
+                .code("147842".to_string())
+                .display("Heart Rate".to_string())
+                .build()
+                .ok(),
+        ])
+        .build()
+        .map_err(|e| e.into())
+}
+
 fn field_value<'a>(segment: &'a Segment, field: usize) -> Option<&'a str> {
     segment.field(field).map(Field::raw_value)
 }
@@ -423,5 +661,8 @@ mod tests {
 
     // todo
     // #[test]
-    // map_ressources_collects_error(){}
+    // fn map_ressources_collects_errors(){}
+
+    // #[todo]
+    // fn test_parse_b
 }

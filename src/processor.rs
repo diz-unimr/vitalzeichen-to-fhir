@@ -191,7 +191,7 @@ impl Processor {
 
                         info!("Restarting consumer for topic {id} in 10 seconds...");
                         if self.is_cancelled(Duration::from_secs(10)).await {
-                            // The token was cancelled
+                            // The token was canceled
                             info!("Consumer[{id}] for topic {topic} was stopped by cancellation");
                             break;
                         }
@@ -374,7 +374,7 @@ fn set_ssl_config(mut c: ClientConfig, ssl_config: Option<Ssl>) -> ClientConfig 
 
 #[cfg(test)]
 mod tests {
-    use crate::config::{AppConfig, Kafka};
+    use crate::config::{AppConfig, Fhir, Kafka};
     use crate::fhir::mapper::FhirMapper;
     use crate::processor::{Context, Processor, deserialize_message};
     use rdkafka::ClientConfig;
@@ -438,7 +438,7 @@ mod tests {
                 ssl: None,
             },
             app: Default::default(),
-            fhir: Default::default(),
+            fhir: Fhir { meta_source: "test-source".to_string(), patient_system: "http://fhir/sid/patient-id".to_string() },
         };
         // mapper
         let mapper = Arc::new(FhirMapper {
