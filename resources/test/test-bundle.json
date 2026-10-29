@@ -1,7 +1,6 @@
 {
   "resourceType": "Bundle",
-  "meta": {
-  },
+  "meta": {},
   "identifier": {
     "system": "https://fhir.diz.uni-marburg.de/sid/bundle-id",
     "value": "ABCDEFG"
@@ -12,7 +11,7 @@
       "resource": {
         "resourceType": "Observation",
         "meta": {
-          "source": "",
+          "source": "test-source",
           "profile": [
             "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/atemfrequenz"
           ]
@@ -21,7 +20,7 @@
           {
             "use": "usual",
             "system": "https://fhir.diz.uni-marburg.de/sid/vital-sign-id",
-            "value": "7f08791cd01d9858890fd00360de948d336056106c4f2a149ad5292dd959d14f"
+            "value": "8922f82b5149831d46d8606e272b865d071e2e38f0e5c131bee87e2eaf6d6ff3"
           }
         ],
         "status": "final",
@@ -46,7 +45,7 @@
           ]
         },
         "valueQuantity": {
-          "value": 8.0,
+          "value": 15.0,
           "unit": "breaths per minute",
           "system": "http://unitsofmeasure.org",
           "code": "/min"
@@ -54,7 +53,7 @@
       },
       "request": {
         "method": "PUT",
-        "url": "Observation?identifier=https://fhir.diz.uni-marburg.de/sid/vital-sign-id|7f08791cd01d9858890fd00360de948d336056106c4f2a149ad5292dd959d14f"
+        "url": "Observation?identifier=https://fhir.diz.uni-marburg.de/sid/vital-sign-id|8922f82b5149831d46d8606e272b865d071e2e38f0e5c131bee87e2eaf6d6ff3"
       }
     }
   ]

@@ -18,10 +18,4 @@ kafka:
 
 fhir:
   meta_source: "https://fhir.diz.uni-marburg.de/data-source/connex-spot-monitor"
-  profile:
-#    ICU-Atemfrequenz-mii
-#    ICU-Koerpergewicht-mii
-#    ICU-Koerpergroesse-mii
-#    ICU-Pulsoxy-mii
-#    ICU-Herzfrequenz-mii
-#    ICU-Arterieller-Blutdruck-mii
+  patient_system: "https://fhir.diz.uni-marburg.de/sid/patient-id"

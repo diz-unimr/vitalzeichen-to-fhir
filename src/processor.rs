@@ -1,6 +1,6 @@
 use crate::ClientConfig;
 use crate::config::{Kafka, Ssl};
-use crate::error::{MappingError, ProcessingError};
+use crate::error::ProcessingError;
 use crate::fhir::mapper::FhirMapper;
 use crate::metrics::{errors, process_count, process_latency};
 use futures::TryStreamExt;
@@ -169,9 +169,9 @@ impl Processor {
                         self.config.input_topic);
                     match stream {
                             // exit
-                            Err(ProcessingError::Mapping(e)) => {
+                            Err(ProcessingError::Mapping(_)) => {
                                 consumer.unsubscribe();
-                                error!("{e}. Exiting.");
+                                error!("Exiting...");
                                 // cancel all consumer instances
                                 self.ctx.cancel.cancel();
                                 // exit loop
@@ -191,7 +191,7 @@ impl Processor {
 
                         info!("Restarting consumer for topic {id} in 10 seconds...");
                         if self.is_cancelled(Duration::from_secs(10)).await {
-                            // The token was cancelled
+                            // The token was canceled
                             info!("Consumer[{id}] for topic {topic} was stopped by cancellation");
                             break;
                         }
@@ -245,20 +245,9 @@ impl Processor {
                 // handle error
                 Err(e) => {
                     error!("Failed to map payload with [key={key}]: {e}");
-
-                    return match &e {
-                        MappingError::FatalError(v) => {
-                            error!("Fatal error, stopping Consumer[{id}]: {v}");
-                            Err(ProcessingError::Mapping(e))
-                        }
-                        _ => {
-                            consumer.store_offset_from_message(&m)?;
-                            process_count().add(1, &[KeyValue::new("status", "error")]);
-                            errors().add(1, &[KeyValue::new("type", e.to_string())]);
-
-                            Ok(())
-                        }
-                    };
+                    error!("Stopping Consumer[{id}]");
+                    errors().add(1, &[KeyValue::new("type", e.to_string())]);
+                    return Err(ProcessingError::Mapping(e));
                 }
             };
 
@@ -385,7 +374,7 @@ fn set_ssl_config(mut c: ClientConfig, ssl_config: Option<Ssl>) -> ClientConfig 
 
 #[cfg(test)]
 mod tests {
-    use crate::config::{AppConfig, Kafka};
+    use crate::config::{AppConfig, Fhir, Kafka};
     use crate::fhir::mapper::FhirMapper;
     use crate::processor::{Context, Processor, deserialize_message};
     use rdkafka::ClientConfig;
@@ -399,6 +388,7 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::Arc;
     use std::time::{SystemTime, UNIX_EPOCH};
+    use tokio::select;
     use tokio_util::sync::CancellationToken;
 
     #[tokio::test]
@@ -448,7 +438,7 @@ mod tests {
                 ssl: None,
             },
             app: Default::default(),
-            fhir: Default::default(),
+            fhir: Fhir { meta_source: "test-source".to_string(), patient_system: "http://fhir/sid/patient-id".to_string() },
         };
         // mapper
         let mapper = Arc::new(FhirMapper {
@@ -466,19 +456,21 @@ mod tests {
             },
         );
 
-        // run
-        tokio::spawn(async move { p.start().await });
+        select! {
+            // run
+            _ = tokio::spawn(async move { p.start().await }) => panic!("processor stopped"),
+            // get message from output topic
+            m = output_consumer.recv() => {
+                let (_, payload) = deserialize_message(&m.unwrap());
+                let payload = &payload.expect("failed to read output message");
+                let actual: Value = serde_json::from_str(&payload).unwrap();
 
-        // get message from output topic
-        let m = output_consumer.recv().await;
-        let (_, payload) = deserialize_message(&m.unwrap());
-        let payload = &payload.expect("failed to read output message");
-        let actual: Value = serde_json::from_str(&payload).unwrap();
+                let expected: Value =
+                 serde_json::from_str(&read_test_resource("test-bundle.json")).unwrap();
 
-        let expected: Value =
-            serde_json::from_str(&read_test_resource("test-bundle.json")).unwrap();
-
-        assert_json_include!(actual:actual,expected: expected);
+                assert_json_include!(actual:actual,expected: expected);
+            }
+        }
     }
 
     #[tokio::test]
