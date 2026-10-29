@@ -35,7 +35,7 @@ Application properties are read from a properties file ([app.yaml](./app.yaml)) 
 | `kafka.input_topic`              | vitalzeichen-hl7                                                  | Kafka topic to consume                        |
 | `kafka.output_topic`             | vitalzeichen-fhir                                                 | Kafka output topic                            |
 | `kafka.offset_reset`             | earliest                                                          | Kafka consumer reset (`earliest` or `latest`) |
-| `fhir.meta_source`               | "https://fhir.diz.uni-marburg.de/data-source/connex-spot-monitor" | Value of `resource.meta.source`               |
+| `fhir.meta_source`               | <https://fhir.diz.uni-marburg.de/data-source/connex-spot-monitor> | Value of `resource.meta.source`               |
 | `fhir.profile`                   | `...`                                                             | `Patient` FHIR profile                        |
 
 ### Environment variables
