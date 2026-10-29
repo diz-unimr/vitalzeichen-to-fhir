@@ -1,7 +1,6 @@
 {
   "resourceType": "Bundle",
-  "meta": {
-  },
+  "meta": {},
   "identifier": {
     "system": "https://fhir.diz.uni-marburg.de/sid/bundle-id",
     "value": "ABCDEFG"
@@ -12,7 +11,7 @@
       "resource": {
         "resourceType": "Observation",
         "meta": {
-          "source": "",
+          "source": "test-source",
           "profile": [
             "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/atemfrequenz"
           ]
