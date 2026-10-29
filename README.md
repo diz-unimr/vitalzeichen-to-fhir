@@ -1,4 +1,4 @@
-source# vitalzeichen-to-fhir
+# vitalzeichen-to-fhir
 
 [![MegaLinter](https://github.com/diz-unimr/vitalzeichen-to-fhir/actions/workflows/mega-linter.yml/badge.svg)](https://github.com/diz-unimr/vitalzeichen-to-fhir/actions/workflows/mega-linter.yml)
 [![build](https://github.com/diz-unimr/vitalzeichen-to-fhir/actions/workflows/build.yaml/badge.svg)](https://github.com/diz-unimr/vitalzeichen-to-fhir/actions/workflows/build.yaml)
