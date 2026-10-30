@@ -300,22 +300,8 @@ impl Processor {
             .set("auto.offset.reset", config.offset_reset)
             .set_log_level(RDKafkaLogLevel::Debug);
 
-        if let Some(ssl) = config.ssl {
-            if let Some(value) = ssl.ca_location {
-                c.set("ssl.ca.location", value);
-            }
-            if let Some(value) = ssl.key_location {
-                c.set("ssl.key.location", value);
-            }
-            if let Some(value) = ssl.certificate_location {
-                c.set("ssl.certificate.location", value);
-            }
-            if let Some(value) = ssl.key_password {
-                c.set("ssl.key.password", value);
-            }
-        }
-
-        c.create_with_context(self.ctx.clone())
+        set_ssl_config(c, config.ssl)
+            .create_with_context(self.ctx.clone())
             .expect("Failed to create Kafka consumer")
     }
 }
@@ -426,20 +412,7 @@ mod tests {
             .unwrap();
 
         // setup config
-        let config = AppConfig {
-            kafka: Kafka {
-                brokers: mock_cluster.bootstrap_servers(),
-                offset_reset: String::from("earliest"),
-                security_protocol: String::from("plaintext"),
-                consumer_group: String::from("test"),
-                input_topic: INPUT_TOPIC.to_owned(),
-                output_topic: OUTPUT_TOPIC.to_owned(),
-                num_partitions: 1,
-                ssl: None,
-            },
-            app: Default::default(),
-            fhir: Fhir { meta_source: "test-source".to_string(), patient_system: "http://fhir/sid/patient-id".to_string() },
-        };
+        let config = setup_config(&mock_cluster, INPUT_TOPIC.to_string(), OUTPUT_TOPIC.to_string());
         // mapper
         let mapper = Arc::new(FhirMapper {
             config: config.fhir,
@@ -468,8 +441,26 @@ mod tests {
                 let expected: Value =
                  serde_json::from_str(&read_test_resource("test-bundle.json")).unwrap();
 
+                // todo validate
                 assert_json_include!(actual:actual,expected: expected);
             }
+        }
+    }
+
+    fn setup_config(mock_cluster: &MockCluster<DefaultProducerContext>, input_topic: String, output_topic: String) -> AppConfig {
+        AppConfig {
+            kafka: Kafka {
+                brokers: mock_cluster.bootstrap_servers(),
+                offset_reset: String::from("earliest"),
+                security_protocol: String::from("plaintext"),
+                consumer_group: String::from("test"),
+                input_topic,
+                output_topic,
+                num_partitions: 1,
+                ssl: None,
+            },
+            app: Default::default(),
+            fhir: Fhir { meta_source: "test-source".to_string(), patient_system: "http://fhir/sid/patient-id".to_string() },
         }
     }
 
@@ -490,21 +481,7 @@ mod tests {
             .expect("Failed to create output topic");
 
         // setup config
-        let config = AppConfig {
-            kafka: Kafka {
-                brokers: mock_cluster.bootstrap_servers(),
-                offset_reset: String::from("earliest"),
-                security_protocol: String::from("plaintext"),
-                consumer_group: String::from("test"),
-                input_topic: INPUT_TOPIC.to_owned(),
-                output_topic: OUTPUT_TOPIC.to_owned(),
-                num_partitions: 1,
-                ssl: None,
-            },
-            app: Default::default(),
-            fhir: Default::default(),
-        };
-
+        let config = setup_config(&mock_cluster, INPUT_TOPIC.to_string(), OUTPUT_TOPIC.to_string());
         // mapper
         let mapper = Arc::new(FhirMapper {
             config: config.fhir,
