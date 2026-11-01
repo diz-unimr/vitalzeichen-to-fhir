@@ -34,30 +34,35 @@ enum ObservationSegment<'a> {
 impl<'a> ObservationSegment<'a> {
     fn code(&self) -> Result<String, MappingError> {
         match self {
-            &ObservationSegment::Single(s) => {
-                field_value(s, 3).ok_or(anyhow!("OBX code field empty")).map(|c| c.to_string()).map_err(|e| e.into())
-            }
-            ObservationSegment::Multiple(m) => {
-                Ok(m.values()
-                    .map(|s| field_value(s, 3).ok_or(anyhow!("OBX code field empty"))).collect::<Result<Vec<_>, _>>()?
-                    .join("+"))
-            }
+            &ObservationSegment::Single(s) => field_value(s, 3)
+                .ok_or(anyhow!("OBX code field empty"))
+                .map(|c| c.to_string())
+                .map_err(|e| e.into()),
+            ObservationSegment::Multiple(m) => Ok(m
+                .values()
+                .map(|s| field_value(s, 3).ok_or(anyhow!("OBX code field empty")))
+                .collect::<Result<Vec<_>, _>>()?
+                .join("+")),
         }
     }
 
     fn effective(&self) -> Result<ObservationEffective, MappingError> {
         match self {
             &ObservationSegment::Single(s) => Ok(observation_effective(s)?),
-            ObservationSegment::Multiple(m) => Ok(observation_effective(m.values().next()
-                .ok_or(anyhow!("Failed to determine OBX 'effective' value. Empty multi segments."))?)?)
+            ObservationSegment::Multiple(m) => {
+                Ok(observation_effective(m.values().next().ok_or(anyhow!(
+                    "Failed to determine OBX 'effective' value. Empty multi segments."
+                ))?)?)
+            }
         }
     }
 
     fn status(&self) -> Result<ObservationStatus, MappingError> {
         match self {
             &ObservationSegment::Single(s) => Ok(observation_status(s)),
-            ObservationSegment::Multiple(m) => Ok(observation_status(m.values().next()
-                .ok_or(anyhow!("Failed to determine OBX 'status' value. Empty multi segments."))?))
+            ObservationSegment::Multiple(m) => Ok(observation_status(m.values().next().ok_or(
+                anyhow!("Failed to determine OBX 'status' value. Empty multi segments."),
+            )?)),
         }
     }
 }
@@ -133,7 +138,7 @@ impl FhirMapper {
 
         let result_refs = obs
             .iter()
-            .filter_map(|e| e.request.as_ref().and_then(|r| Some(r.url.clone())));
+            .filter_map(|e| e.request.as_ref().map(|r| r.url.clone()));
         let report = self.map_report(msg, result_refs)?;
 
         Ok(bundle_entry(report)
@@ -185,6 +190,18 @@ impl FhirMapper {
                 .value(obx_value_numeric(s)?)
                 .unit("beats per minute".to_string())
                 .code("/min".to_string()).build()?))
+        )
+    }
+
+    fn map_weight(&self, s: &Segment) -> Result<ObservationBuilder, MappingError> {
+        Ok(Observation::builder()
+            .meta(self.meta("https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/koerpergewicht".to_string())?)
+            .code(weight_coding()?)
+            .value(ObservationValue::Quantity(Quantity::builder()
+                .system("http://unitsofmeasure.org".to_string())
+                .value(obx_value_numeric(s)?)
+                .unit("kilogram".to_string())
+                .code("kg".to_string()).build()?))
         )
     }
 
@@ -307,9 +324,7 @@ impl FhirMapper {
                                     Coding::builder()
                                         .system("urn:iso:std:iso:11073:10101".to_string())
                                         .code("150019".to_string())
-                                        .display(
-                                            "Mean blood pressure".to_string(),
-                                        )
+                                        .display("Mean blood pressure".to_string())
                                         .build()?,
                                 ),
                             ])
@@ -360,7 +375,7 @@ impl FhirMapper {
                     // todo
                     "HT" => return Ok(None),
                     // todo
-                    "WT" => return Ok(None),
+                    "WT" => self.map_weight(s),
                     // todo?
                     "RESPMODE" | "TEMPSITE" | "PAIN" | "TEMP" | "BMI" => return Ok(None),
                     o => Err(anyhow!("Unknown OBX identifier: {o}").into()),
@@ -396,7 +411,7 @@ impl FhirMapper {
                     .r#use(IdentifierUse::Usual)
                     .system("https://fhir.diz.uni-marburg.de/sid/vital-sign-order-id".to_string())
                     .value(order_number(msg)?.to_string())
-                    .build()?
+                    .build()?,
             )])
             .code(
                 CodeableConcept::builder()
@@ -467,7 +482,10 @@ fn category() -> Result<Vec<Option<CodeableConcept>>, BuilderError> {
     )])
 }
 
-fn identifier(s: &ObservationSegment, order_id: &str) -> Result<Vec<Option<Identifier>>, MappingError> {
+fn identifier(
+    s: &ObservationSegment,
+    order_id: &str,
+) -> Result<Vec<Option<Identifier>>, MappingError> {
     Ok(vec![Some(build_usual_identifier(
         vec![order_id, s.code()?.as_str()],
         "https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id".to_string(),
@@ -571,7 +589,27 @@ fn heart_rate_coding() -> Result<CodeableConcept, BuilderError> {
                 .ok(),
         ])
         .build()
-        .map_err(|e| e.into())
+}
+
+fn weight_coding() -> Result<CodeableConcept, BuilderError> {
+    CodeableConcept::builder()
+        .coding(vec![
+            Some(
+                Coding::builder()
+                    .system("http://loinc.org".to_string())
+                    .code("29463-7".to_string())
+                    .display("Body weight".to_string())
+                    .build()?,
+            ),
+            Some(
+                Coding::builder()
+                    .system("http://snomed.info/sct".to_string())
+                    .code("27113001".to_string())
+                    .display("Body weight (observable entity)".to_string())
+                    .build()?,
+            ),
+        ])
+        .build()
 }
 
 fn field_value<'a>(segment: &'a Segment, field: usize) -> Option<&'a str> {
@@ -580,13 +618,17 @@ fn field_value<'a>(segment: &'a Segment, field: usize) -> Option<&'a str> {
 
 pub(crate) fn message_key<'a>(msg: &'a Message<'_>) -> Result<&'a str, MappingError> {
     query(msg, "MSH.10")
-        .ok_or(anyhow!("Failed to parse message key from MSH.10".to_string()))
+        .ok_or(anyhow!(
+            "Failed to parse message key from MSH.10".to_string()
+        ))
         .map_err(|e| e.into())
 }
 
 fn order_number<'a>(msg: &'a Message<'_>) -> Result<&'a str, MappingError> {
     query(msg, "OBR.3")
-        .ok_or(anyhow!("Failed to parse order number from OBR.3".to_string()))
+        .ok_or(anyhow!(
+            "Failed to parse order number from OBR.3".to_string()
+        ))
         .map_err(|e| e.into())
 }
 

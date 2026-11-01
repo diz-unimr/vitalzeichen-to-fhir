@@ -40,6 +40,9 @@
             "reference": "Observation?identifier=https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id|e7fbbb6a271b7116976cab786c546c4728d45e06696a6eab9b40770a24ec02db"
           },
           {
+            "reference": "Observation?identifier=https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id|c6eae073d2a39856566d9b52acf04068e098eb1762a225ad35c5950443a211fd"
+          },
+          {
             "reference": "Observation?identifier=https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id|c321df3c15d41d133d00c2c154f6bb5dc9fbaeafec48be5da9c367572b6fa3b4"
           }
         ]
@@ -233,6 +236,63 @@
       "request": {
         "method": "PUT",
         "url": "Observation?identifier=https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id|e7fbbb6a271b7116976cab786c546c4728d45e06696a6eab9b40770a24ec02db"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "meta": {
+          "source": "test-source",
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/koerpergewicht"
+          ]
+        },
+        "identifier": [
+          {
+            "use": "usual",
+            "system": "https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id",
+            "value": "c6eae073d2a39856566d9b52acf04068e098eb1762a225ad35c5950443a211fd"
+          }
+        ],
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "29463-7",
+              "display": "Body weight"
+            },
+            {
+              "system": "http://snomed.info/sct",
+              "code": "27113001",
+              "display": "Body weight (observable entity)"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient?identifier=http://fhir/sid/patient-id|00000001"
+        },
+        "effectiveDateTime": "2026-10-28T14:47:06Z",
+        "valueQuantity": {
+          "value": 105.0,
+          "unit": "kilogram",
+          "system": "http://unitsofmeasure.org",
+          "code": "kg"
+        }
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Observation?identifier=https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id|c6eae073d2a39856566d9b52acf04068e098eb1762a225ad35c5950443a211fd"
       }
     },
     {
