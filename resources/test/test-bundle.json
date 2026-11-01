@@ -1,6 +1,8 @@
 {
   "resourceType": "Bundle",
-  "meta": {},
+  "meta": {
+    "source": "test-source"
+  },
   "identifier": {
     "system": "https://fhir.diz.uni-marburg.de/sid/bundle-id",
     "value": "ABCDEFG"
@@ -9,18 +11,58 @@
   "entry": [
     {
       "resource": {
+        "resourceType": "DiagnosticReport",
+        "identifier": [
+          {
+            "use": "usual",
+            "system": "https://fhir.diz.uni-marburg.de/sid/vital-sign-order-id",
+            "value": "123456789"
+          }
+        ],
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "29274-8",
+              "display": "Vital signs measurements"
+            }
+          ]
+        },
+        "result": [
+          {
+            "reference": "Observation?identifier=https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id|7cfc8dcea6a128ebef2a46873dc998ca1d444ba4e40842682346137e06ad04db"
+          },
+          {
+            "reference": "Observation?identifier=https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id|e314c4cd1b1216b741173145d3bd1cc7d6e760a10688ebc9fd67df9beb7f291d"
+          },
+          {
+            "reference": "Observation?identifier=https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id|e7fbbb6a271b7116976cab786c546c4728d45e06696a6eab9b40770a24ec02db"
+          },
+          {
+            "reference": "Observation?identifier=https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id|c321df3c15d41d133d00c2c154f6bb5dc9fbaeafec48be5da9c367572b6fa3b4"
+          }
+        ]
+      },
+      "request": {
+        "method": "PUT",
+        "url": "DiagnosticReport?identifier=https://fhir.diz.uni-marburg.de/sid/vital-sign-order-id|123456789"
+      }
+    },
+    {
+      "resource": {
         "resourceType": "Observation",
         "meta": {
           "source": "test-source",
           "profile": [
-            "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/atemfrequenz"
+            "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/atemfrequenz|2025.0.4"
           ]
         },
         "identifier": [
           {
             "use": "usual",
-            "system": "https://fhir.diz.uni-marburg.de/sid/vital-sign-id",
-            "value": "8922f82b5149831d46d8606e272b865d071e2e38f0e5c131bee87e2eaf6d6ff3"
+            "system": "https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id",
+            "value": "7cfc8dcea6a128ebef2a46873dc998ca1d444ba4e40842682346137e06ad04db"
           }
         ],
         "status": "final",
@@ -38,12 +80,20 @@
           "coding": [
             {
               "system": "http://snomed.info/sct",
-              "version": "http://snomed.info/sct/900000000000207008/version/20241101",
               "code": "86290005",
               "display": "Respiratory rate (observable entity)"
+            },
+            {
+              "system": "http://loinc.org",
+              "code": "9279-1",
+              "display": "Respiratory rate"
             }
           ]
         },
+        "subject": {
+          "reference": "Patient?identifier=http://fhir/sid/patient-id|00000001"
+        },
+        "effectiveDateTime": "2026-10-28T14:47:06Z",
         "valueQuantity": {
           "value": 15.0,
           "unit": "breaths per minute",
@@ -53,7 +103,270 @@
       },
       "request": {
         "method": "PUT",
-        "url": "Observation?identifier=https://fhir.diz.uni-marburg.de/sid/vital-sign-id|8922f82b5149831d46d8606e272b865d071e2e38f0e5c131bee87e2eaf6d6ff3"
+        "url": "Observation?identifier=https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id|7cfc8dcea6a128ebef2a46873dc998ca1d444ba4e40842682346137e06ad04db"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "meta": {
+          "source": "test-source",
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/herzfrequenz|2025.0.4"
+          ]
+        },
+        "identifier": [
+          {
+            "use": "usual",
+            "system": "https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id",
+            "value": "e314c4cd1b1216b741173145d3bd1cc7d6e760a10688ebc9fd67df9beb7f291d"
+          }
+        ],
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "364075005",
+              "display": "Heart rate (observable entity)"
+            },
+            {
+              "system": "http://loinc.org",
+              "code": "8867-4",
+              "display": "Heart rate"
+            },
+            {
+              "system": "urn:iso:std:iso:11073:10101",
+              "code": "147842",
+              "display": "MDC_ECG_HEART_RATE"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient?identifier=http://fhir/sid/patient-id|00000001"
+        },
+        "effectiveDateTime": "2026-10-28T14:47:06Z",
+        "valueQuantity": {
+          "value": 82.0,
+          "unit": "beats per minute",
+          "system": "http://unitsofmeasure.org",
+          "code": "/min"
+        }
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Observation?identifier=https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id|e314c4cd1b1216b741173145d3bd1cc7d6e760a10688ebc9fd67df9beb7f291d"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "meta": {
+          "source": "test-source",
+          "profile": [
+            "https://gematik.de/fhir/isik/StructureDefinition/sd-mii-icu-o2saettigung-im-arteriellen-blut-durch-pulsoxymetrie"
+          ]
+        },
+        "identifier": [
+          {
+            "use": "usual",
+            "system": "https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id",
+            "value": "e7fbbb6a271b7116976cab786c546c4728d45e06696a6eab9b40770a24ec02db"
+          }
+        ],
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "442476006",
+              "display": "Arterial oxygen saturation"
+            },
+            {
+              "system": "http://loinc.org",
+              "code": "59408-5",
+              "display": "Oxygen saturation in Arterial blood by Pulse oximetry"
+            },
+            {
+              "system": "urn:iso:std:iso:11073:10101",
+              "code": "150324",
+              "display": "MDC_SAT_O2_ART"
+            },
+            {
+              "system": "http://loinc.org",
+              "code": "2708-6",
+              "display": "Oxygen saturation in Arterial blood"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient?identifier=http://fhir/sid/patient-id|00000001"
+        },
+        "effectiveDateTime": "2026-10-28T14:47:06Z",
+        "valueQuantity": {
+          "value": 93.0,
+          "unit": "percent",
+          "system": "http://unitsofmeasure.org",
+          "code": "%"
+        }
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Observation?identifier=https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id|e7fbbb6a271b7116976cab786c546c4728d45e06696a6eab9b40770a24ec02db"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "meta": {
+          "source": "test-source",
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/arterieller-blutdruck|2025.0.4"
+          ]
+        },
+        "identifier": [
+          {
+            "use": "usual",
+            "system": "https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id",
+            "value": "c321df3c15d41d133d00c2c154f6bb5dc9fbaeafec48be5da9c367572b6fa3b4"
+          }
+        ],
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "364090009",
+              "display": "Systemic arterial pressure (observable entity)"
+            },
+            {
+              "system": "http://loinc.org",
+              "code": "85354-9",
+              "display": "Blood pressure panel with all children optional"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient?identifier=http://fhir/sid/patient-id|00000001"
+        },
+        "effectiveDateTime": "2026-10-28T14:47:06Z",
+        "component": [
+          {
+            "code": {
+              "coding": [
+                {
+                  "system": "http://loinc.org",
+                  "code": "8480-6",
+                  "display": "Systolic blood pressure"
+                },
+                {
+                  "system": "http://snomed.info/sct",
+                  "code": "271649006",
+                  "display": "Systolic blood pressure (observable entity)"
+                },
+                {
+                  "system": "urn:iso:std:iso:11073:10101",
+                  "code": "150017",
+                  "display": "Systolic blood pressure"
+                }
+              ]
+            },
+            "valueQuantity": {
+              "value": 127.0,
+              "unit": "millimeter Mercury column",
+              "system": "http://unitsofmeasure.org",
+              "code": "mm[Hg]"
+            }
+          },
+          {
+            "code": {
+              "coding": [
+                {
+                  "system": "http://loinc.org",
+                  "code": "8462-4",
+                  "display": "Diastolic blood pressure"
+                },
+                {
+                  "system": "http://snomed.info/sct",
+                  "code": "271650006",
+                  "display": "Diastolic blood pressure (observable entity)"
+                },
+                {
+                  "system": "urn:iso:std:iso:11073:10101",
+                  "code": "150018",
+                  "display": "Diastolic blood pressure"
+                }
+              ]
+            },
+            "valueQuantity": {
+              "value": 77.0,
+              "unit": "millimeter Mercury column",
+              "system": "http://unitsofmeasure.org",
+              "code": "mm[Hg]"
+            }
+          },
+          {
+            "code": {
+              "coding": [
+                {
+                  "system": "http://loinc.org",
+                  "code": "8478-0",
+                  "display": "Mean blood pressure"
+                },
+                {
+                  "system": "http://snomed.info/sct",
+                  "code": "6797001",
+                  "display": "Mean blood pressure (observable entity)"
+                },
+                {
+                  "system": "urn:iso:std:iso:11073:10101",
+                  "code": "150019",
+                  "display": "Mean blood pressure"
+                }
+              ]
+            },
+            "valueQuantity": {
+              "value": 93.8,
+              "unit": "millimeter Mercury column",
+              "system": "http://unitsofmeasure.org",
+              "code": "mm[Hg]"
+            }
+          }
+        ]
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Observation?identifier=https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id|c321df3c15d41d133d00c2c154f6bb5dc9fbaeafec48be5da9c367572b6fa3b4"
       }
     }
   ]
