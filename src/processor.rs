@@ -412,7 +412,11 @@ mod tests {
             .unwrap();
 
         // setup config
-        let config = setup_config(&mock_cluster, INPUT_TOPIC.to_string(), OUTPUT_TOPIC.to_string());
+        let config = setup_config(
+            &mock_cluster,
+            INPUT_TOPIC.to_string(),
+            OUTPUT_TOPIC.to_string(),
+        );
         // mapper
         let mapper = Arc::new(FhirMapper {
             config: config.fhir,
@@ -441,13 +445,16 @@ mod tests {
                 let expected: Value =
                  serde_json::from_str(&read_test_resource("test-bundle.json")).unwrap();
 
-                // todo validate
                 assert_json_include!(actual:actual,expected: expected);
             }
         }
     }
 
-    fn setup_config(mock_cluster: &MockCluster<DefaultProducerContext>, input_topic: String, output_topic: String) -> AppConfig {
+    fn setup_config(
+        mock_cluster: &MockCluster<DefaultProducerContext>,
+        input_topic: String,
+        output_topic: String,
+    ) -> AppConfig {
         AppConfig {
             kafka: Kafka {
                 brokers: mock_cluster.bootstrap_servers(),
@@ -460,7 +467,10 @@ mod tests {
                 ssl: None,
             },
             app: Default::default(),
-            fhir: Fhir { meta_source: "test-source".to_string(), patient_system: "http://fhir/sid/patient-id".to_string() },
+            fhir: Fhir {
+                meta_source: "test-source".to_string(),
+                patient_system: "http://fhir/sid/patient-id".to_string(),
+            },
         }
     }
 
@@ -481,7 +491,11 @@ mod tests {
             .expect("Failed to create output topic");
 
         // setup config
-        let config = setup_config(&mock_cluster, INPUT_TOPIC.to_string(), OUTPUT_TOPIC.to_string());
+        let config = setup_config(
+            &mock_cluster,
+            INPUT_TOPIC.to_string(),
+            OUTPUT_TOPIC.to_string(),
+        );
         // mapper
         let mapper = Arc::new(FhirMapper {
             config: config.fhir,

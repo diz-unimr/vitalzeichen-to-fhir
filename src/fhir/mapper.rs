@@ -19,7 +19,7 @@ use hl7_parser::Message;
 use hl7_parser::message::{Field, Segment};
 use itertools::{Either, Itertools};
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::iter;
 
 pub(crate) struct FhirMapper {
@@ -28,14 +28,36 @@ pub(crate) struct FhirMapper {
 
 enum ObservationSegment<'a> {
     Single(&'a Segment<'a>),
-    Multiple(HashMap<&'a str, &'a Segment<'a>>),
+    Multiple(BTreeMap<&'a str, &'a Segment<'a>>),
 }
 
 impl<'a> ObservationSegment<'a> {
-    fn single(&self) -> Option<&'a Segment<'a>> {
+    fn code(&self) -> Result<String, MappingError> {
         match self {
-            &ObservationSegment::Single(&ref s) => Some(s),
-            ObservationSegment::Multiple(m) => m.values().next().map(|v| &**v),
+            &ObservationSegment::Single(s) => {
+                field_value(s, 3).ok_or(anyhow!("OBX code field empty")).map(|c| c.to_string()).map_err(|e| e.into())
+            }
+            ObservationSegment::Multiple(m) => {
+                Ok(m.values()
+                    .map(|s| field_value(s, 3).ok_or(anyhow!("OBX code field empty"))).collect::<Result<Vec<_>, _>>()?
+                    .join("+"))
+            }
+        }
+    }
+
+    fn effective(&self) -> Result<ObservationEffective, MappingError> {
+        match self {
+            &ObservationSegment::Single(s) => Ok(observation_effective(s)?),
+            ObservationSegment::Multiple(m) => Ok(observation_effective(m.values().next()
+                .ok_or(anyhow!("Failed to determine OBX 'effective' value. Empty multi segments."))?)?)
+        }
+    }
+
+    fn status(&self) -> Result<ObservationStatus, MappingError> {
+        match self {
+            &ObservationSegment::Single(s) => Ok(observation_status(s)),
+            ObservationSegment::Multiple(m) => Ok(observation_status(m.values().next()
+                .ok_or(anyhow!("Failed to determine OBX 'status' value. Empty multi segments."))?))
         }
     }
 }
@@ -68,8 +90,7 @@ impl FhirMapper {
             .meta(
                 Meta::builder()
                     .last_updated(Instant(OffsetDateTime::now_utc()))
-                    // todo source
-                    // .source()
+                    .source(self.config.meta_source.clone())
                     .build()?,
             )
             .build()?;
@@ -81,11 +102,11 @@ impl FhirMapper {
     }
 
     fn map_resources(&self, msg: &Message) -> Result<Vec<Option<BundleEntry>>, MappingError> {
+        let order_id = message_key(msg)?;
         let pid = query(msg, "PID.3").ok_or(anyhow!("Missing patient id (pid) in PID.3"))?;
-        let msg_key = message_key(msg)?;
 
         // partition segments by blood pressure values (bp) and other, single observations
-        let (bp, other): (HashMap<_, _>, Vec<_>) = msg
+        let (bp, other): (BTreeMap<_, _>, Vec<_>) = msg
             .segments()
             .filter(|s| s.name == "OBX")
             .partition_map(|s| match field_value(s, 3) {
@@ -98,7 +119,7 @@ impl FhirMapper {
             .into_iter()
             .map(ObservationSegment::Single)
             .chain(iter::once(ObservationSegment::Multiple(bp)))
-            .filter_map(|s| self.map_observation(s, msg_key, pid).transpose())
+            .filter_map(|s| self.map_observation(s, order_id, pid).transpose())
             .map(|o| bundle_entry(o?))
             .collect::<Result<Vec<_>, _>>()?;
 
@@ -133,7 +154,7 @@ impl FhirMapper {
 
     fn map_respiratory_rate(&self, s: &Segment) -> Result<ObservationBuilder, MappingError> {
         Ok(Observation::builder()
-            .meta(self.meta("https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/atemfrequenz".to_string())?)
+            .meta(self.meta("https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/atemfrequenz|2025.0.4".to_string())?)
             .code(respiratory_rate_coding()?)
             .value(ObservationValue::Quantity(Quantity::builder()
                 .system("http://unitsofmeasure.org".to_string())
@@ -157,7 +178,7 @@ impl FhirMapper {
 
     fn map_heart_rate(&self, s: &Segment) -> Result<ObservationBuilder, MappingError> {
         Ok(Observation::builder()
-            .meta(self.meta("https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/herzfrequenz".to_string())?)
+            .meta(self.meta("https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/herzfrequenz|2025.0.4".to_string())?)
             .code(heart_rate_coding()?)
             .value(ObservationValue::Quantity(Quantity::builder()
                 .system("http://unitsofmeasure.org".to_string())
@@ -306,28 +327,26 @@ impl FhirMapper {
             ),
         ];
         Ok(Observation::builder()
-            .meta(self.meta("https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/arterieller-blutdruck".to_string())?)
+            .meta(self.meta("https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/arterieller-blutdruck|2025.0.4".to_string())?)
             .code(blood_pressure_coding()?)
             .component(components)
         )
     }
 
-    fn meta(&self, profile: String) -> Result<Meta, BuilderError> {
+    fn meta(&self, canonical: String) -> Result<Meta, BuilderError> {
         Meta::builder()
             .source(self.config.meta_source.to_string())
-            .profile(vec![profile.into()])
+            .profile(vec![canonical.into()])
+            .last_updated(Instant(OffsetDateTime::now_utc()))
             .build()
     }
 
     fn map_observation(
         &self,
         s: ObservationSegment,
-        msg_id: &str,
+        order_id: &str,
         pid: &str,
     ) -> Result<Option<Observation>, MappingError> {
-        let ref_seg = s
-            .single()
-            .ok_or(anyhow!("failed to provide single observation segment"))?;
         match s {
             ObservationSegment::Single(s) => {
                 // OBX identifier
@@ -356,11 +375,11 @@ impl FhirMapper {
             }
         }
             // common properties
-            .identifier(identifier(ref_seg, msg_id)?)
+            .identifier(identifier(&s, order_id)?)
             .category(category()?)
-            .status(observation_status(ref_seg))
+            .status(s.status()?)
             .subject(self.patient_ref(pid)?)
-            .effective(observation_effective(ref_seg)?)
+            .effective(s.effective()?)
             .build()
             .map(Some)
             .map_err(|e| e.into())
@@ -372,6 +391,13 @@ impl FhirMapper {
         result_refs: impl Iterator<Item=String>,
     ) -> Result<DiagnosticReport, MappingError> {
         DiagnosticReport::builder()
+            .identifier(vec![Some(
+                Identifier::builder()
+                    .r#use(IdentifierUse::Usual)
+                    .system("https://fhir.diz.uni-marburg.de/sid/vital-sign-order-id".to_string())
+                    .value(order_number(msg)?.to_string())
+                    .build()?
+            )])
             .code(
                 CodeableConcept::builder()
                     .coding(vec![Some(
@@ -404,14 +430,15 @@ fn blood_pressure_coding() -> Result<CodeableConcept, BuilderError> {
             Some(
                 Coding::builder()
                     .system("http://snomed.info/sct".to_string())
-                    .code("75367002".to_string())
-                    .display("Blood pressure (observable entity)".to_string())
+                    .code("364090009".to_string())
+                    .display("Systemic arterial pressure (observable entity)".to_string())
                     .build()?,
             ),
             Some(
                 Coding::builder()
                     .system("http://loinc.org".to_string())
                     .code("85354-9".to_string())
+                    .display("Blood pressure panel with all children optional".to_string())
                     .build()?,
             ),
         ])
@@ -440,14 +467,10 @@ fn category() -> Result<Vec<Option<CodeableConcept>>, BuilderError> {
     )])
 }
 
-fn identifier(segment: &Segment, msg_id: &str) -> Result<Vec<Option<Identifier>>, MappingError> {
-    // identifier
-    let code = field_value(segment, 3).ok_or(anyhow!("OBX code field empty"))?;
-    let segment_number = field_value(segment, 1).ok_or(anyhow!("OBX segment number missing"))?;
-
+fn identifier(s: &ObservationSegment, order_id: &str) -> Result<Vec<Option<Identifier>>, MappingError> {
     Ok(vec![Some(build_usual_identifier(
-        vec![msg_id, segment_number, code],
-        "https://fhir.diz.uni-marburg.de/sid/vital-sign-id".to_string(),
+        vec![order_id, s.code()?.as_str()],
+        "https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id".to_string(),
     )?)])
 }
 
@@ -480,18 +503,13 @@ fn respiratory_rate_coding() -> Result<CodeableConcept, BuilderError> {
             Coding::builder()
                 .system("http://snomed.info/sct".to_string())
                 .code("86290005".to_string())
-                .version(
-                    "http://snomed.info/sct/900000000000207008/version/20241101"
-                        .to_string()
-                        .into(),
-                )
                 .display("Respiratory rate (observable entity)".to_string())
                 .build()
                 .ok(),
             Coding::builder()
                 .system("http://loinc.org".to_string())
                 .code("9279-1".to_string())
-                .display("Respiratory Rate".to_string())
+                .display("Respiratory rate".to_string())
                 .build()
                 .ok(),
         ])
@@ -510,9 +528,7 @@ fn oxygen_saturation_coding() -> Result<CodeableConcept, BuilderError> {
             Coding::builder()
                 .system("http://loinc.org".to_string())
                 .code("59408-5".to_string())
-                .display(
-                    "Sauerstoffsättigung in arteriellem Blut mittels Pulsoximetrie".to_string(),
-                )
+                .display("Oxygen saturation in Arterial blood by Pulse oximetry".to_string())
                 .build()
                 .ok(),
             Coding::builder()
@@ -544,13 +560,13 @@ fn heart_rate_coding() -> Result<CodeableConcept, BuilderError> {
             Coding::builder()
                 .system("http://loinc.org".to_string())
                 .code("8867-4".to_string())
-                .display("Heart Rate".to_string())
+                .display("Heart rate".to_string())
                 .build()
                 .ok(),
             Coding::builder()
                 .system("urn:iso:std:iso:11073:10101".to_string())
                 .code("147842".to_string())
-                .display("Heart Rate".to_string())
+                .display("MDC_ECG_HEART_RATE".to_string())
                 .build()
                 .ok(),
         ])
@@ -564,7 +580,13 @@ fn field_value<'a>(segment: &'a Segment, field: usize) -> Option<&'a str> {
 
 pub(crate) fn message_key<'a>(msg: &'a Message<'_>) -> Result<&'a str, MappingError> {
     query(msg, "MSH.10")
-        .ok_or(anyhow!("Failed to parse message key".to_string()))
+        .ok_or(anyhow!("Failed to parse message key from MSH.10".to_string()))
+        .map_err(|e| e.into())
+}
+
+fn order_number<'a>(msg: &'a Message<'_>) -> Result<&'a str, MappingError> {
+    query(msg, "OBR.3")
+        .ok_or(anyhow!("Failed to parse order number from OBR.3".to_string()))
         .map_err(|e| e.into())
 }
 
