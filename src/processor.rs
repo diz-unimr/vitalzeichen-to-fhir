@@ -445,6 +445,7 @@ mod tests {
                 let expected: Value =
                  serde_json::from_str(&read_test_resource("test-bundle.json")).unwrap();
 
+                println!("{payload}");
                 assert_json_include!(actual:actual,expected: expected);
             }
         }
