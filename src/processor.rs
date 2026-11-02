@@ -440,7 +440,7 @@ mod tests {
             m = output_consumer.recv() => {
                 let (_, payload) = deserialize_message(&m.unwrap());
                 let payload = &payload.expect("failed to read output message");
-                let actual: Value = serde_json::from_str(&payload).unwrap();
+                let actual: Value = serde_json::from_str(payload).unwrap();
 
                 let expected: Value =
                  serde_json::from_str(&read_test_resource("test-bundle.json")).unwrap();
