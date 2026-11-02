@@ -159,7 +159,7 @@ impl FhirMapper {
 
     fn map_respiratory_rate(&self, s: &Segment) -> Result<ObservationBuilder, MappingError> {
         Ok(Observation::builder()
-            .meta(self.meta("https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/atemfrequenz|2025.0.4".to_string())?)
+            .meta(self.meta(vec!["https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/atemfrequenz|2025.0.4".to_string()])?)
             .code(respiratory_rate_coding()?)
             .value(ObservationValue::Quantity(Quantity::builder()
                 .system("http://unitsofmeasure.org".to_string())
@@ -171,7 +171,7 @@ impl FhirMapper {
 
     fn map_oxygen_saturation(&self, s: &Segment) -> Result<ObservationBuilder, MappingError> {
         Ok(Observation::builder()
-            .meta(self.meta("https://gematik.de/fhir/isik/StructureDefinition/sd-mii-icu-o2saettigung-im-arteriellen-blut-durch-pulsoxymetrie".to_string())?)
+            .meta(self.meta(vec!["https://gematik.de/fhir/isik/StructureDefinition/sd-mii-icu-o2saettigung-im-arteriellen-blut-durch-pulsoxymetrie".to_string()])?)
             .code(oxygen_saturation_coding()?)
             .value(ObservationValue::Quantity(Quantity::builder()
                 .system("http://unitsofmeasure.org".to_string())
@@ -183,7 +183,7 @@ impl FhirMapper {
 
     fn map_heart_rate(&self, s: &Segment) -> Result<ObservationBuilder, MappingError> {
         Ok(Observation::builder()
-            .meta(self.meta("https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/herzfrequenz|2025.0.4".to_string())?)
+            .meta(self.meta(vec!["https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/herzfrequenz|2025.0.4".to_string()])?)
             .code(heart_rate_coding()?)
             .value(ObservationValue::Quantity(Quantity::builder()
                 .system("http://unitsofmeasure.org".to_string())
@@ -195,7 +195,7 @@ impl FhirMapper {
 
     fn map_weight(&self, s: &Segment) -> Result<ObservationBuilder, MappingError> {
         Ok(Observation::builder()
-            .meta(self.meta("https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/koerpergewicht|2025.0.4".to_string())?)
+            .meta(self.meta(vec!["https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/koerpergewicht|2025.0.4".to_string()])?)
             .code(weight_coding()?)
             .value(ObservationValue::Quantity(Quantity::builder()
                 .system("http://unitsofmeasure.org".to_string())
@@ -207,13 +207,36 @@ impl FhirMapper {
 
     fn map_height(&self, s: &Segment) -> Result<ObservationBuilder, MappingError> {
         Ok(Observation::builder()
-            .meta(self.meta("https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/koerpergroesse|2025.0.4".to_string())?)
+            .meta(self.meta(vec!["https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/koerpergroesse|2025.0.4".to_string()])?)
             .code(height_coding()?)
             .value(ObservationValue::Quantity(Quantity::builder()
                 .system("http://unitsofmeasure.org".to_string())
                 .value(obx_value_numeric(s)?)
                 .unit("centimeter".to_string())
                 .code("cm".to_string()).build()?))
+        )
+    }
+
+    fn map_temperature(&self, s: &Segment) -> Result<ObservationBuilder, MappingError> {
+        Ok(Observation::builder()
+            .meta(self.meta(vec![
+                "https://gematik.de/fhir/isik/StructureDefinition/sd-mii-icu-koerpertemperatur-generisch".to_string(),
+                "https://gematik.de/fhir/isik/StructureDefinition/sd-mii-icu-koerpertemperatur-trommelfell".to_string()])?)
+            .code(temperature_coding()?)
+            .value(ObservationValue::Quantity(Quantity::builder()
+                .system("http://unitsofmeasure.org".to_string())
+                .value(obx_value_numeric(s)?)
+                .unit("degree Celsius".to_string())
+                .code("Cel".to_string()).build()?))
+            .body_site(CodeableConcept::builder()
+                .coding(vec![
+                    Some(Coding::builder()
+                        .system("http://snomed.info/sct".to_string())
+                        .code("42859004".to_string())
+                        .display("Tympanic membrane structure (body structure)".to_string())
+                        .build()?)
+                ])
+                .build()?)
         )
     }
 
@@ -354,16 +377,16 @@ impl FhirMapper {
             ),
         ];
         Ok(Observation::builder()
-            .meta(self.meta("https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/arterieller-blutdruck|2025.0.4".to_string())?)
+            .meta(self.meta(vec!["https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/arterieller-blutdruck|2025.0.4".to_string()])?)
             .code(blood_pressure_coding()?)
             .component(components)
         )
     }
 
-    fn meta(&self, canonical: String) -> Result<Meta, BuilderError> {
+    fn meta(&self, profiles: Vec<String>) -> Result<Meta, BuilderError> {
         Meta::builder()
             .source(self.config.meta_source.to_string())
-            .profile(vec![canonical.into()])
+            .profile(profiles.into_iter().map(Some).collect())
             .last_updated(Instant(OffsetDateTime::now_utc()))
             .build()
     }
@@ -378,7 +401,7 @@ impl FhirMapper {
             ObservationSegment::Single(s) => {
                 // OBX identifier
                 match field_value(s, 3).ok_or(anyhow!("empty OBX identifier"))? {
-                    // atemfrequenz
+                    // atemfrequenz (assumes RESPMODE: Pleth)
                     "RESP" => self.map_respiratory_rate(s),
                     // sauerstoffsättigung
                     "SPO2" => self.map_oxygen_saturation(s),
@@ -388,8 +411,9 @@ impl FhirMapper {
                     "HT" => self.map_height(s),
                     // koerpergewicht
                     "WT" => self.map_weight(s),
-                    // todo?
-                    "RESPMODE" | "TEMPSITE" | "PAIN" | "TEMP" | "BMI" => return Ok(None),
+                    // koerpertemperatur-trommelfell (assumes TEMPSITE: Tympanic)
+                    "TEMP" => self.map_temperature(s),
+                    "RESPMODE" | "TEMPSITE" | "PAIN" | "BMI" => return Ok(None),
                     o => Err(anyhow!("Unknown OBX identifier: {o}").into()),
                 }?
             }
@@ -645,6 +669,51 @@ fn height_coding() -> Result<CodeableConcept, BuilderError> {
         .build()
 }
 
+fn temperature_coding() -> Result<CodeableConcept, BuilderError> {
+    CodeableConcept::builder()
+        .coding(vec![
+            Some(
+                Coding::builder()
+                    .system("http://snomed.info/sct".to_string())
+                    .code("415974002".to_string())
+                    .display(
+                        "Core body temperature measured at tympanic membrane (observable entity)"
+                            .to_string(),
+                    )
+                    .build()?,
+                // 415974002
+            ),
+            Some(
+                Coding::builder()
+                    .system("http://loinc.org".to_string())
+                    .code("8333-7".to_string())
+                    .display("Tympanic membrane temperature".to_string())
+                    .build()?,
+            ),
+            Some(
+                Coding::builder()
+                    .system("http://loinc.org".to_string())
+                    .code("8329-5".to_string())
+                    .display("Body temperature - Core".to_string())
+                    .build()?,
+            ),
+            Some(
+                Coding::builder()
+                    .system("http://loinc.org".to_string())
+                    .code("8310-5".to_string())
+                    .display("Body temperature".to_string())
+                    .build()?,
+            ),
+            Some(
+                Coding::builder()
+                    .system("urn:iso:std:iso:11073:10101".to_string())
+                    .code("150392".to_string())
+                    .build()?,
+            ),
+        ])
+        .build()
+}
+
 fn field_value<'a>(segment: &'a Segment, field: usize) -> Option<&'a str> {
     segment.field(field).map(Field::raw_value)
 }
@@ -761,5 +830,6 @@ mod tests {
     // fn map_ressources_collects_errors(){}
 
     // #[todo]
-    // fn test_parse_b
+    // fn map_ressources_sets_meta
+    // assert BundleEntry.fullUrl and Meta.lastUpdated are set
 }

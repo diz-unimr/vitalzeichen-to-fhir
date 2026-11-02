@@ -43,6 +43,9 @@
             "reference": "Observation?identifier=https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id|e7fbbb6a271b7116976cab786c546c4728d45e06696a6eab9b40770a24ec02db"
           },
           {
+            "reference": "Observation?identifier=https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id|a21ad1d403ebcd369f5d37473b8ee41e474438b78cfba8eb38db7b5560906567"
+          },
+          {
             "reference": "Observation?identifier=https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id|c6eae073d2a39856566d9b52acf04068e098eb1762a225ad35c5950443a211fd"
           },
           {
@@ -296,6 +299,87 @@
       "request": {
         "method": "PUT",
         "url": "Observation?identifier=https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id|e7fbbb6a271b7116976cab786c546c4728d45e06696a6eab9b40770a24ec02db"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "meta": {
+          "source": "test-source",
+          "profile": [
+            "https://gematik.de/fhir/isik/StructureDefinition/sd-mii-icu-koerpertemperatur-generisch",
+            "https://gematik.de/fhir/isik/StructureDefinition/sd-mii-icu-koerpertemperatur-trommelfell"
+          ]
+        },
+        "identifier": [
+          {
+            "use": "usual",
+            "system": "https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id",
+            "value": "a21ad1d403ebcd369f5d37473b8ee41e474438b78cfba8eb38db7b5560906567"
+          }
+        ],
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "415974002",
+              "display": "Core body temperature measured at tympanic membrane (observable entity)"
+            },
+            {
+              "system": "http://loinc.org",
+              "code": "8333-7",
+              "display": "Tympanic membrane temperature"
+            },
+            {
+              "system": "http://loinc.org",
+              "code": "8329-5",
+              "display": "Body temperature - Core"
+            },
+            {
+              "system": "http://loinc.org",
+              "code": "8310-5",
+              "display": "Body temperature"
+            },
+            {
+              "system": "urn:iso:std:iso:11073:10101",
+              "code": "150392"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient?identifier=http://fhir/sid/patient-id|00000001"
+        },
+        "effectiveDateTime": "2026-10-28T14:47:06Z",
+        "valueQuantity": {
+          "value": 36.3,
+          "unit": "degree Celsius",
+          "system": "http://unitsofmeasure.org",
+          "code": "Cel"
+        },
+        "bodySite": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "42859004",
+              "display": "Tympanic membrane structure (body structure)"
+            }
+          ]
+        }
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Observation?identifier=https://fhir.diz.uni-marburg.de/sid/vital-sign-observation-id|a21ad1d403ebcd369f5d37473b8ee41e474438b78cfba8eb38db7b5560906567"
       }
     },
     {
