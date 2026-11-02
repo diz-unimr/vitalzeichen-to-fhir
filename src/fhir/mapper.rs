@@ -195,13 +195,25 @@ impl FhirMapper {
 
     fn map_weight(&self, s: &Segment) -> Result<ObservationBuilder, MappingError> {
         Ok(Observation::builder()
-            .meta(self.meta("https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/koerpergewicht".to_string())?)
+            .meta(self.meta("https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/koerpergewicht|2025.0.4".to_string())?)
             .code(weight_coding()?)
             .value(ObservationValue::Quantity(Quantity::builder()
                 .system("http://unitsofmeasure.org".to_string())
                 .value(obx_value_numeric(s)?)
                 .unit("kilogram".to_string())
                 .code("kg".to_string()).build()?))
+        )
+    }
+
+    fn map_height(&self, s: &Segment) -> Result<ObservationBuilder, MappingError> {
+        Ok(Observation::builder()
+            .meta(self.meta("https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/koerpergroesse|2025.0.4".to_string())?)
+            .code(height_coding()?)
+            .value(ObservationValue::Quantity(Quantity::builder()
+                .system("http://unitsofmeasure.org".to_string())
+                .value(obx_value_numeric(s)?)
+                .unit("centimeter".to_string())
+                .code("cm".to_string()).build()?))
         )
     }
 
@@ -372,9 +384,9 @@ impl FhirMapper {
                     "SPO2" => self.map_oxygen_saturation(s),
                     // herzfrequenz
                     "HR" => self.map_heart_rate(s),
-                    // todo
-                    "HT" => return Ok(None),
-                    // todo
+                    // koerpergroesse
+                    "HT" => self.map_height(s),
+                    // koerpergewicht
                     "WT" => self.map_weight(s),
                     // todo?
                     "RESPMODE" | "TEMPSITE" | "PAIN" | "TEMP" | "BMI" => return Ok(None),
@@ -606,6 +618,27 @@ fn weight_coding() -> Result<CodeableConcept, BuilderError> {
                     .system("http://snomed.info/sct".to_string())
                     .code("27113001".to_string())
                     .display("Body weight (observable entity)".to_string())
+                    .build()?,
+            ),
+        ])
+        .build()
+}
+
+fn height_coding() -> Result<CodeableConcept, BuilderError> {
+    CodeableConcept::builder()
+        .coding(vec![
+            Some(
+                Coding::builder()
+                    .system("http://loinc.org".to_string())
+                    .code("8302-2".to_string())
+                    .display("Body height".to_string())
+                    .build()?,
+            ),
+            Some(
+                Coding::builder()
+                    .system("http://snomed.info/sct".to_string())
+                    .code("1153637007".to_string())
+                    .display("Body height (observable entity)".to_string())
                     .build()?,
             ),
         ])
