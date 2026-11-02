@@ -442,6 +442,12 @@ impl FhirMapper {
         result_refs: impl Iterator<Item=String>,
     ) -> Result<DiagnosticReport, MappingError> {
         DiagnosticReport::builder()
+            .meta(
+                Meta::builder()
+                    .last_updated(Instant(OffsetDateTime::now_utc()))
+                    .source(self.config.meta_source.clone())
+                    .build()?,
+            )
             .identifier(vec![Some(
                 Identifier::builder()
                     .r#use(IdentifierUse::Usual)
@@ -824,12 +830,39 @@ pub(crate) fn parse_datetime(input: &str) -> Result<DateTime, MappingError> {
 
 #[cfg(test)]
 mod tests {
+    use crate::config::Fhir;
+    use crate::fhir::mapper::FhirMapper;
+    use hl7_parser::Message;
 
-    // todo
-    // #[test]
-    // fn map_ressources_collects_errors(){}
+    #[test]
+    fn map_resources_sets_meta() {
+        // assert BundleEntry.fullUrl and Meta.lastUpdated are set
+        let hl7 = r#"MSH|^~\&|Connex|Welch Allyn|HIS||20251102130019||ORU^R01|test-msg|P|2.5
+PID|||1234567||Lustig^Peter
+PV1||I|||||||||||||||||12345678
+OBR|||123|S|||20251102130008||||||||||||||||||F
+OBX|1|NM|SYS||117|Mmhg||N|||F|||20251102130008|100078484223|||NIBP
+OBX|2|NM|DIA||70|Mmhg||N|||F|||20251102130008|100078484223|||NIBP
+OBX|3|NM|MAP||85.9|Mmhg||N|||F|||20251102130008|100078484223|||NIBP
+OBX|4|NM|HR||82|/min||N|||F|||20251102130008|100078484223|||NIBP
+OBX|5|ST|TEMPSITE||Tympanic||||||F|||20251102130008|100078484223|||Temperature
+OBX|6|NM|TEMP||36.5|Celsius||N|||F|||20251102130008|100078484223|||Temperature
+"#;
+        let msg = Message::parse_with_lenient_newlines(hl7, true).unwrap();
 
-    // #[todo]
-    // fn map_ressources_sets_meta
-    // assert BundleEntry.fullUrl and Meta.lastUpdated are set
+        // act
+        let mapper = FhirMapper {
+            config: Fhir::default(),
+        };
+        let actual = mapper.map_resources(&msg).unwrap();
+
+        assert!(actual.iter().all(|b| {
+            b.as_ref().is_some_and(|e| {
+                e.full_url.is_some()
+                    && e.resource.as_ref().is_some_and(|r| {
+                    r.as_base_resource().meta().as_ref().unwrap().last_updated.is_some()
+                })
+            })
+        }));
+    }
 }
