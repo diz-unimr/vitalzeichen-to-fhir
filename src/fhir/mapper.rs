@@ -125,9 +125,9 @@ impl FhirMapper {
             .into_iter()
             .map(ObservationSegment::Single)
             .chain(iter::once(ObservationSegment::Multiple(bp)))
-            .filter_map(|s| self.map_observation(s, order_id, pid).transpose())
-            .map(|o| bundle_entry(o?))
-            .collect::<Result<Vec<_>, _>>()?;
+            .filter_map(|s| self.map_observation(s, order_id, pid).ok().flatten())
+            .filter_map(|o| bundle_entry(o).ok())
+            .collect::<Vec<_>>();
 
         if obs.is_empty() {
             warn!(
