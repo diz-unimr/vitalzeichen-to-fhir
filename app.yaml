@@ -12,7 +12,7 @@ kafka:
     key_password:
   consumer_group: vitalzeichen-to-fhir
   input_topic: vital_monitor-hl7-idat
-  output_topic: vital_monitor-hl7-fhir
+  output_topic: vital_monitor-fhir-idat
   offset_reset: earliest
   num_partitions: 1
 
