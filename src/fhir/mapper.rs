@@ -874,7 +874,6 @@ OBX|6|NM|TEMP||36.5|Celsius||N|||F|||20251102130008|100078484223|||Temperature
 
     #[test]
     fn empty_observations_is_ok() {
-        // assert BundleEntry.fullUrl and Meta.lastUpdated are set
         let hl7 = r#"MSH|^~\&|Connex|Welch Allyn|HIS||20251102130019||ORU^R01|test-msg|P|2.5
 PID|||1234567||Lustig^Peter
 PV1||I|||||||||||||||||12345678

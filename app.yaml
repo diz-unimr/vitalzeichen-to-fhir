@@ -11,8 +11,8 @@ kafka:
     key_location: /app/cert/app_key.pem
     key_password:
   consumer_group: vitalzeichen-to-fhir
-  input_topic: vital_monitor-hl7-idat
-  output_topic: vital_monitor-fhir-idat
+  input_topic: vitalzeichen-hl7
+  output_topic: vitalzeichen-fhir
   offset_reset: earliest
   num_partitions: 1
 
