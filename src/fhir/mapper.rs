@@ -18,6 +18,7 @@ use fhir_model::{BuilderError, DateTime, Instant};
 use hl7_parser::Message;
 use hl7_parser::message::{Field, Segment};
 use itertools::{Either, Itertools};
+use log::warn;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::iter;
@@ -129,11 +130,8 @@ impl FhirMapper {
             .collect::<Result<Vec<_>, _>>()?;
 
         if obs.is_empty() {
-            return Err(anyhow!(
-                "No observations could be mapped for message key={}",
-                message_key(msg).unwrap_or_default()
-            )
-                .into());
+            warn!("No observations could be mapped for message key={}", message_key(msg).unwrap_or_default());
+            return Ok(vec![]);
         }
 
         let result_refs = obs
