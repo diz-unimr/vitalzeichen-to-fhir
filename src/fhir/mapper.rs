@@ -130,7 +130,10 @@ impl FhirMapper {
             .collect::<Result<Vec<_>, _>>()?;
 
         if obs.is_empty() {
-            warn!("No observations could be mapped for message key={}", message_key(msg).unwrap_or_default());
+            warn!(
+                "No observations could be mapped for message key={}",
+                message_key(msg).unwrap_or_default()
+            );
             return Ok(vec![]);
         }
 
@@ -858,9 +861,33 @@ OBX|6|NM|TEMP||36.5|Celsius||N|||F|||20251102130008|100078484223|||Temperature
             b.as_ref().is_some_and(|e| {
                 e.full_url.is_some()
                     && e.resource.as_ref().is_some_and(|r| {
-                    r.as_base_resource().meta().as_ref().unwrap().last_updated.is_some()
+                    r.as_base_resource()
+                        .meta()
+                        .as_ref()
+                        .unwrap()
+                        .last_updated
+                        .is_some()
                 })
             })
         }));
+    }
+
+    #[test]
+    fn empty_observations_is_ok() {
+        // assert BundleEntry.fullUrl and Meta.lastUpdated are set
+        let hl7 = r#"MSH|^~\&|Connex|Welch Allyn|HIS||20251102130019||ORU^R01|test-msg|P|2.5
+PID|||1234567||Lustig^Peter
+PV1||I|||||||||||||||||12345678
+OBR|||123|S|||20251102130008||||||||||||||||||F
+OBX|1|NM|PAIN||4|||N|||F|||20261028154706|100008113623|||Manual
+"#;
+
+        // act
+        let mapper = FhirMapper {
+            config: Fhir::default(),
+        };
+        let actual = mapper.map(hl7);
+
+        assert_eq!(actual.unwrap(), None);
     }
 }
