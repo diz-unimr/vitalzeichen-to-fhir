@@ -26,6 +26,7 @@ pub(crate) struct Kafka {
 pub(crate) struct Fhir {
     pub(crate) meta_source: String,
     pub(crate) patient_system: String,
+    pub(crate) encounter_system: String,
 }
 
 #[derive(Default, Debug, Deserialize, Clone)]

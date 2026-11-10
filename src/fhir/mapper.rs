@@ -108,8 +108,9 @@ impl FhirMapper {
     }
 
     fn map_resources(&self, msg: &Message) -> Result<Vec<Option<BundleEntry>>, MappingError> {
-        let order_id = message_key(msg)?;
+        let order_id = query(msg, "OBR.3").ok_or(anyhow!("Missing report id (order_id) in OBR.3"))?;
         let pid = query(msg, "PID.3").ok_or(anyhow!("Missing patient id (pid) in PID.3"))?;
+        let visit_id = query(msg, "PV1.19").ok_or(anyhow!("Missing encounter id (visit_id) in PV1.19"))?;
 
         // partition segments by blood pressure values (bp) and other, single observations
         let (bp, other): (BTreeMap<_, _>, Vec<_>) = msg
@@ -125,7 +126,7 @@ impl FhirMapper {
             .into_iter()
             .map(ObservationSegment::Single)
             .chain(iter::once(ObservationSegment::Multiple(bp)))
-            .filter_map(|s| self.map_observation(s, order_id, pid).ok().flatten())
+            .filter_map(|s| self.map_observation(s, order_id, pid, visit_id).ok().flatten())
             .filter_map(|o| bundle_entry(o).ok())
             .collect::<Vec<_>>();
 
@@ -154,6 +155,15 @@ impl FhirMapper {
             .reference(format!(
                 "Patient?identifier={}|{pid}",
                 self.config.patient_system
+            ))
+            .build()
+    }
+
+    fn encounter_ref(&self, visit_id: &str) -> Result<Reference, BuilderError> {
+        Reference::builder()
+            .reference(format!(
+                "Encounter?identifier={}|{visit_id}",
+                self.config.encounter_system
             ))
             .build()
     }
@@ -397,6 +407,7 @@ impl FhirMapper {
         s: ObservationSegment,
         order_id: &str,
         pid: &str,
+        visit_id: &str,
     ) -> Result<Option<Observation>, MappingError> {
         match s {
             ObservationSegment::Single(s) => {
@@ -431,6 +442,7 @@ impl FhirMapper {
             .category(category()?)
             .status(s.status()?)
             .subject(self.patient_ref(pid)?)
+            .encounter(self.encounter_ref(visit_id)?)
             .effective(s.effective()?)
             .build()
             .map(Some)
