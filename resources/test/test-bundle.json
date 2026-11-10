@@ -102,6 +102,9 @@
         "subject": {
           "reference": "Patient?identifier=http://fhir/sid/patient-id|00000001"
         },
+        "encounter": {
+          "reference": "Encounter?identifier=http://fhir/sid/encounter-id|00000002"
+        },
         "effectiveDateTime": "2026-10-28T14:47:06Z",
         "valueQuantity": {
           "value": 183.0,
@@ -158,6 +161,9 @@
         },
         "subject": {
           "reference": "Patient?identifier=http://fhir/sid/patient-id|00000001"
+        },
+        "encounter": {
+          "reference": "Encounter?identifier=http://fhir/sid/encounter-id|00000002"
         },
         "effectiveDateTime": "2026-10-28T14:47:06Z",
         "valueQuantity": {
@@ -220,6 +226,9 @@
         },
         "subject": {
           "reference": "Patient?identifier=http://fhir/sid/patient-id|00000001"
+        },
+        "encounter": {
+          "reference": "Encounter?identifier=http://fhir/sid/encounter-id|00000002"
         },
         "effectiveDateTime": "2026-10-28T14:47:06Z",
         "valueQuantity": {
@@ -287,6 +296,9 @@
         },
         "subject": {
           "reference": "Patient?identifier=http://fhir/sid/patient-id|00000001"
+        },
+        "encounter": {
+          "reference": "Encounter?identifier=http://fhir/sid/encounter-id|00000002"
         },
         "effectiveDateTime": "2026-10-28T14:47:06Z",
         "valueQuantity": {
@@ -360,6 +372,9 @@
         "subject": {
           "reference": "Patient?identifier=http://fhir/sid/patient-id|00000001"
         },
+        "encounter": {
+          "reference": "Encounter?identifier=http://fhir/sid/encounter-id|00000002"
+        },
         "effectiveDateTime": "2026-10-28T14:47:06Z",
         "valueQuantity": {
           "value": 36.3,
@@ -426,6 +441,9 @@
         "subject": {
           "reference": "Patient?identifier=http://fhir/sid/patient-id|00000001"
         },
+        "encounter": {
+          "reference": "Encounter?identifier=http://fhir/sid/encounter-id|00000002"
+        },
         "effectiveDateTime": "2026-10-28T14:47:06Z",
         "valueQuantity": {
           "value": 105.0,
@@ -482,6 +500,9 @@
         },
         "subject": {
           "reference": "Patient?identifier=http://fhir/sid/patient-id|00000001"
+        },
+        "encounter": {
+          "reference": "Encounter?identifier=http://fhir/sid/encounter-id|00000002"
         },
         "effectiveDateTime": "2026-10-28T14:47:06Z",
         "component": [

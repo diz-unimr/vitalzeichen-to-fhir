@@ -108,7 +108,9 @@ impl FhirMapper {
     }
 
     fn map_resources(&self, msg: &Message) -> Result<Vec<Option<BundleEntry>>, MappingError> {
-        let order_id = query(msg, "OBR.3").ok_or(anyhow!("Missing report id (order_id) in OBR.3"))?;
+        // todo: should be OBR.3 (order number) instead of MSH.10 (message key)
+        // todo: breaking change: this will change Observation ids!
+        let msh_id = message_key(msg)?;
         let pid = query(msg, "PID.3").ok_or(anyhow!("Missing patient id (pid) in PID.3"))?;
         let visit_id = query(msg, "PV1.19").ok_or(anyhow!("Missing encounter id (visit_id) in PV1.19"))?;
 
@@ -126,7 +128,7 @@ impl FhirMapper {
             .into_iter()
             .map(ObservationSegment::Single)
             .chain(iter::once(ObservationSegment::Multiple(bp)))
-            .filter_map(|s| self.map_observation(s, order_id, pid, visit_id).ok().flatten())
+            .filter_map(|s| self.map_observation(s, msh_id, pid, visit_id).ok().flatten())
             .filter_map(|o| bundle_entry(o).ok())
             .collect::<Vec<_>>();
 
@@ -405,7 +407,7 @@ impl FhirMapper {
     fn map_observation(
         &self,
         s: ObservationSegment,
-        order_id: &str,
+        msh_id: &str,
         pid: &str,
         visit_id: &str,
     ) -> Result<Option<Observation>, MappingError> {
@@ -438,7 +440,7 @@ impl FhirMapper {
             }
         }
             // common properties
-            .identifier(identifier(&s, order_id)?)
+            .identifier(identifier(&s, msh_id)?)
             .category(category()?)
             .status(s.status()?)
             .subject(self.patient_ref(pid)?)
