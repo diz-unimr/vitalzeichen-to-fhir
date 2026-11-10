@@ -12,6 +12,9 @@
     {
       "resource": {
         "resourceType": "DiagnosticReport",
+        "meta": {
+          "source": "test-source"
+        },
         "identifier": [
           {
             "use": "usual",
@@ -156,6 +159,10 @@
               "system": "http://loinc.org",
               "code": "9279-1",
               "display": "Respiratory rate"
+            },
+            {
+              "system": "https://fhir.diz.uni-marburg.de/CodeSystem/vital-sign-code",
+              "code": "RESP"
             }
           ]
         },
@@ -221,6 +228,10 @@
               "system": "urn:iso:std:iso:11073:10101",
               "code": "147842",
               "display": "MDC_ECG_HEART_RATE"
+            },
+            {
+              "system": "https://fhir.diz.uni-marburg.de/CodeSystem/vital-sign-code",
+              "code": "HR"
             }
           ]
         },
@@ -291,6 +302,10 @@
               "system": "http://loinc.org",
               "code": "2708-6",
               "display": "Oxygen saturation in Arterial blood"
+            },
+            {
+              "system": "https://fhir.diz.uni-marburg.de/CodeSystem/vital-sign-code",
+              "code": "SPO2"
             }
           ]
         },
@@ -495,6 +510,18 @@
               "system": "http://loinc.org",
               "code": "85354-9",
               "display": "Blood pressure panel with all children optional"
+            },
+            {
+              "system": "https://fhir.diz.uni-marburg.de/CodeSystem/vital-sign-code",
+              "code": "SYS"
+            },
+            {
+              "system": "https://fhir.diz.uni-marburg.de/CodeSystem/vital-sign-code",
+              "code": "DIA"
+            },
+            {
+              "system": "https://fhir.diz.uni-marburg.de/CodeSystem/vital-sign-code",
+              "code": "MAP"
             }
           ]
         },
@@ -523,6 +550,10 @@
                   "system": "urn:iso:std:iso:11073:10101",
                   "code": "150017",
                   "display": "Systolic blood pressure"
+                },
+                {
+                  "system": "https://fhir.diz.uni-marburg.de/CodeSystem/vital-sign-code",
+                  "code": "SYS"
                 }
               ]
             },
@@ -550,6 +581,10 @@
                   "system": "urn:iso:std:iso:11073:10101",
                   "code": "150018",
                   "display": "Diastolic blood pressure"
+                },
+                {
+                  "system": "https://fhir.diz.uni-marburg.de/CodeSystem/vital-sign-code",
+                  "code": "DIA"
                 }
               ]
             },
@@ -577,6 +612,10 @@
                   "system": "urn:iso:std:iso:11073:10101",
                   "code": "150019",
                   "display": "Mean blood pressure"
+                },
+                {
+                  "system": "https://fhir.diz.uni-marburg.de/CodeSystem/vital-sign-code",
+                  "code": "MAP"
                 }
               ]
             },

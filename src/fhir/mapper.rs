@@ -173,7 +173,7 @@ impl FhirMapper {
     fn map_respiratory_rate(&self, s: &Segment) -> Result<ObservationBuilder, MappingError> {
         Ok(Observation::builder()
             .meta(self.meta(vec!["https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/atemfrequenz|2025.0.4".to_string()])?)
-            .code(respiratory_rate_coding()?)
+            .code(respiratory_rate_coding(obx_code(s)?)?)
             .value(ObservationValue::Quantity(Quantity::builder()
                 .system("http://unitsofmeasure.org".to_string())
                 .value(obx_value_numeric(s)?)
@@ -185,7 +185,7 @@ impl FhirMapper {
     fn map_oxygen_saturation(&self, s: &Segment) -> Result<ObservationBuilder, MappingError> {
         Ok(Observation::builder()
             .meta(self.meta(vec!["https://gematik.de/fhir/isik/StructureDefinition/sd-mii-icu-o2saettigung-im-arteriellen-blut-durch-pulsoxymetrie".to_string()])?)
-            .code(oxygen_saturation_coding()?)
+            .code(oxygen_saturation_coding(obx_code(s)?)?)
             .value(ObservationValue::Quantity(Quantity::builder()
                 .system("http://unitsofmeasure.org".to_string())
                 .value(obx_value_numeric(s)?)
@@ -197,7 +197,7 @@ impl FhirMapper {
     fn map_heart_rate(&self, s: &Segment) -> Result<ObservationBuilder, MappingError> {
         Ok(Observation::builder()
             .meta(self.meta(vec!["https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/herzfrequenz|2025.0.4".to_string()])?)
-            .code(heart_rate_coding()?)
+            .code(heart_rate_coding(obx_code(s)?)?)
             .value(ObservationValue::Quantity(Quantity::builder()
                 .system("http://unitsofmeasure.org".to_string())
                 .value(obx_value_numeric(s)?)
@@ -259,6 +259,9 @@ impl FhirMapper {
         dia: &Segment,
         map: &Segment,
     ) -> Result<ObservationBuilder, MappingError> {
+        let sys_code = obx_code(sys)?;
+        let dia_code = obx_code(dia)?;
+        let map_code = obx_code(map)?;
         let components = vec![
             // sys
             Some(
@@ -290,6 +293,7 @@ impl FhirMapper {
                                         .display("Systolic blood pressure".to_string())
                                         .build()?,
                                 ),
+                                Some(local_coding(sys_code)?)
                             ])
                             .build()?,
                     )
@@ -333,6 +337,7 @@ impl FhirMapper {
                                         .display("Diastolic blood pressure".to_string())
                                         .build()?,
                                 ),
+                                Some(local_coding(dia_code)?)
                             ])
                             .build()?,
                     )
@@ -375,6 +380,7 @@ impl FhirMapper {
                                         .display("Mean blood pressure".to_string())
                                         .build()?,
                                 ),
+                                Some(local_coding(map_code)?)
                             ])
                             .build()?,
                     )
@@ -391,7 +397,7 @@ impl FhirMapper {
         ];
         Ok(Observation::builder()
             .meta(self.meta(vec!["https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/arterieller-blutdruck|2025.0.4".to_string()])?)
-            .code(blood_pressure_coding()?)
+            .code(blood_pressure_coding(vec![sys_code, dia_code, map_code])?)
             .component(components)
         )
     }
@@ -414,7 +420,7 @@ impl FhirMapper {
         match s {
             ObservationSegment::Single(s) => {
                 // OBX identifier
-                match field_value(s, 3).ok_or(anyhow!("empty OBX identifier"))? {
+                match obx_code(s)? {
                     // atemfrequenz (assumes RESPMODE: Pleth)
                     "RESP" => self.map_respiratory_rate(s),
                     // sauerstoffsättigung
@@ -496,8 +502,16 @@ impl FhirMapper {
     }
 }
 
-fn blood_pressure_coding() -> Result<CodeableConcept, BuilderError> {
-    CodeableConcept::builder()
+fn obx_code<'a>(s: &'a Segment<'_>) -> Result<&'a str, MappingError> {
+    field_value(s, 3).ok_or(anyhow!("empty OBX identifier").into())
+}
+
+fn blood_pressure_coding<'a>(local_codes: impl IntoIterator<Item=&'a str>) -> Result<CodeableConcept, BuilderError> {
+    let local_codings: Vec<Option<Coding>> = local_codes.into_iter()
+        .map(|c| local_coding(c).map(Some))
+        .collect::<Result<Vec<Option<_>>, _>>()?;
+
+    let builder = CodeableConcept::builder()
         .coding(vec![
             Some(
                 Coding::builder()
@@ -513,8 +527,8 @@ fn blood_pressure_coding() -> Result<CodeableConcept, BuilderError> {
                     .display("Blood pressure panel with all children optional".to_string())
                     .build()?,
             ),
-        ])
-        .build()
+        ].into_iter().chain(local_codings).collect());
+    builder.build()
 }
 
 fn observation_effective(segment: &Segment) -> Result<ObservationEffective, MappingError> {
@@ -572,7 +586,7 @@ pub(crate) fn build_usual_identifier(
         .build()
 }
 
-fn respiratory_rate_coding() -> Result<CodeableConcept, BuilderError> {
+fn respiratory_rate_coding(local_code: &str) -> Result<CodeableConcept, BuilderError> {
     CodeableConcept::builder()
         .coding(vec![
             Coding::builder()
@@ -587,63 +601,58 @@ fn respiratory_rate_coding() -> Result<CodeableConcept, BuilderError> {
                 .display("Respiratory rate".to_string())
                 .build()
                 .ok(),
+            local_coding(local_code).ok()
         ])
         .build()
 }
 
-fn oxygen_saturation_coding() -> Result<CodeableConcept, BuilderError> {
+fn oxygen_saturation_coding(local_code: &str) -> Result<CodeableConcept, BuilderError> {
     CodeableConcept::builder()
         .coding(vec![
-            Coding::builder()
+            Some(Coding::builder()
                 .system("http://snomed.info/sct".to_string())
                 .code("442476006".to_string())
                 .display("Arterial oxygen saturation".to_string())
-                .build()
-                .ok(),
-            Coding::builder()
+                .build()?),
+            Some(Coding::builder()
                 .system("http://loinc.org".to_string())
                 .code("59408-5".to_string())
                 .display("Oxygen saturation in Arterial blood by Pulse oximetry".to_string())
-                .build()
-                .ok(),
-            Coding::builder()
+                .build()?),
+            Some(Coding::builder()
                 .system("urn:iso:std:iso:11073:10101".to_string())
                 .code("150324".to_string())
                 .display("MDC_SAT_O2_ART".to_string())
-                .build()
-                .ok(),
-            Coding::builder()
+                .build()?),
+            Some(Coding::builder()
                 .system("http://loinc.org".to_string())
                 .code("2708-6".to_string())
                 .display("Oxygen saturation in Arterial blood".to_string())
-                .build()
-                .ok(),
+                .build()?),
+            Some(local_coding(local_code)?)
         ])
         .build()
-        .map_err(|e| e.into())
 }
 
-fn heart_rate_coding() -> Result<CodeableConcept, BuilderError> {
+fn heart_rate_coding(local_code: &str) -> Result<CodeableConcept, BuilderError> {
     CodeableConcept::builder()
         .coding(vec![
-            Coding::builder()
+            Some(Coding::builder()
                 .system("http://snomed.info/sct".to_string())
                 .code("364075005".to_string())
                 .display("Heart rate (observable entity)".to_string())
-                .build()
-                .ok(),
-            Coding::builder()
+                .build()?),
+            Some(Coding::builder()
                 .system("http://loinc.org".to_string())
                 .code("8867-4".to_string())
                 .display("Heart rate".to_string())
-                .build()
-                .ok(),
-            Coding::builder()
+                .build()?),
+            Some(Coding::builder()
                 .system("urn:iso:std:iso:11073:10101".to_string())
                 .code("147842".to_string())
                 .display("MDC_ECG_HEART_RATE".to_string())
-                .build()
-                .ok(),
+                .build()?),
+            Some(local_coding(local_code)?)
         ])
         .build()
 }
@@ -651,20 +660,16 @@ fn heart_rate_coding() -> Result<CodeableConcept, BuilderError> {
 fn weight_coding() -> Result<CodeableConcept, BuilderError> {
     CodeableConcept::builder()
         .coding(vec![
-            Some(
-                Coding::builder()
-                    .system("http://loinc.org".to_string())
-                    .code("29463-7".to_string())
-                    .display("Body weight".to_string())
-                    .build()?,
-            ),
-            Some(
-                Coding::builder()
-                    .system("http://snomed.info/sct".to_string())
-                    .code("27113001".to_string())
-                    .display("Body weight (observable entity)".to_string())
-                    .build()?,
-            ),
+            Some(Coding::builder()
+                .system("http://loinc.org".to_string())
+                .code("29463-7".to_string())
+                .display("Body weight".to_string())
+                .build()?),
+            Some(Coding::builder()
+                .system("http://snomed.info/sct".to_string())
+                .code("27113001".to_string())
+                .display("Body weight (observable entity)".to_string())
+                .build()?),
         ])
         .build()
 }
@@ -672,20 +677,16 @@ fn weight_coding() -> Result<CodeableConcept, BuilderError> {
 fn height_coding() -> Result<CodeableConcept, BuilderError> {
     CodeableConcept::builder()
         .coding(vec![
-            Some(
-                Coding::builder()
-                    .system("http://loinc.org".to_string())
-                    .code("8302-2".to_string())
-                    .display("Body height".to_string())
-                    .build()?,
-            ),
-            Some(
-                Coding::builder()
-                    .system("http://snomed.info/sct".to_string())
-                    .code("1153637007".to_string())
-                    .display("Body height (observable entity)".to_string())
-                    .build()?,
-            ),
+            Some(Coding::builder()
+                .system("http://loinc.org".to_string())
+                .code("8302-2".to_string())
+                .display("Body height".to_string())
+                .build()?),
+            Some(Coding::builder()
+                .system("http://snomed.info/sct".to_string())
+                .code("1153637007".to_string())
+                .display("Body height (observable entity)".to_string())
+                .build()?),
         ])
         .build()
 }
@@ -702,7 +703,6 @@ fn temperature_coding() -> Result<CodeableConcept, BuilderError> {
                             .to_string(),
                     )
                     .build()?,
-                // 415974002
             ),
             Some(
                 Coding::builder()
@@ -732,6 +732,13 @@ fn temperature_coding() -> Result<CodeableConcept, BuilderError> {
                     .build()?,
             ),
         ])
+        .build()
+}
+
+fn local_coding(code: &str) -> Result<Coding, BuilderError> {
+    Coding::builder()
+        .system("https://fhir.diz.uni-marburg.de/CodeSystem/vital-sign-code".to_string())
+        .code(code.to_string())
         .build()
 }
 
