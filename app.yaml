@@ -19,3 +19,4 @@ kafka:
 fhir:
   meta_source: "https://fhir.diz.uni-marburg.de/data-source/connex-spot-monitor"
   patient_system: "https://fhir.diz.uni-marburg.de/sid/patient-id"
+  encounter_system: "https://fhir.diz.uni-marburg.de/sid/encounter-id"

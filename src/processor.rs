@@ -471,6 +471,7 @@ mod tests {
             fhir: Fhir {
                 meta_source: "test-source".to_string(),
                 patient_system: "http://fhir/sid/patient-id".to_string(),
+                encounter_system: "http://fhir/sid/encounter-id".to_string(),
             },
         }
     }
